@@ -49,7 +49,7 @@ jobs:
         run: |
           # Which account and project are being used (not secret)
           SA=$(node -e "const k=require(process.env.GOOGLE_APPLICATION_CREDENTIALS);console.log(k.client_email+' (key project: '+k.project_id+')')" 2>/dev/null || echo "unknown")
-          echo "::warning title=Deploy account::$SA → deploying to project $(node -p "require('./.firebaserc').projects.default")"
+          echo "::warning title=Deploy account::$SA → deploying to project $(node -p "JSON.parse(require('fs').readFileSync('.firebaserc','utf8')).projects.default")"
           # Firebase's own error lines, shown at the top of the run page
           grep -iE "error|denied|permission|forbidden|not been used|disabled|not found|HTTP [0-9]{3}" deploy.log | grep -viE "private_key|BEGIN" | head -8 \
             | while IFS= read -r line; do echo "::error title=Firebase::${line}"; done || true
