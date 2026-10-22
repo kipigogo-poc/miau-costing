@@ -1100,7 +1100,8 @@ function shrinkImage(file, maxSide, type, quality) {
 }
 
 /* ---------- Orders page ---------- */
-function orderRows() { return Object.entries(ORD.orders).map(([id, o]) => ({ id, o, t: tsMs(o.createdAt) })).sort((a, b) => b.t - a.t); }
+const safeImg = v => (typeof v === "string" && /^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(v) ? v : "");
+function orderRows() { return Object.entries(ORD.orders).filter(([id]) => /^[A-Za-z0-9_-]{1,64}$/.test(id)).map(([id, o]) => ({ id, o, t: tsMs(o.createdAt) })).sort((a, b) => b.t - a.t); }
 function expectedTotal(o) { let t = 0, ok = true; for (const l of o.items || []) { const m = ORD.menu[l.menuId]; if (!m || m.price == null) { ok = false; continue; } t += m.price * (+l.qty || 0); } return ok ? t : null; }
 function renderOrders() {
   const all = orderRows(), act = all.filter(r => ACTIVE.includes(r.o.status));
@@ -1122,7 +1123,7 @@ function renderOrders() {
     const st = ST[o.status] || { t: o.status, k: "neutral" }, nx = NEXT[o.status], exp = expectedTotal(o);
     const mism = exp != null && Math.abs(exp - (+o.total || 0)) > 0.009;
     return `<div class="card ocard ${o.status === "payment_submitted" ? "hot" : ""}" data-oid="${id}">
-      <div class="oc-h"><div><span class="ocode">#${esc(o.code)}</span> <span class="badge ${st.k}">${st.t}</span></div><span class="faint" title="${new Date(t).toLocaleString()}">${t ? ago(t) : ""}</span></div>
+      <div class="oc-h"><div><span class="ocode">#${esc(o.code)}</span> <span class="badge ${esc(st.k)}">${esc(st.t)}</span></div><span class="faint" title="${new Date(t).toLocaleString()}">${t ? ago(t) : ""}</span></div>
       <div class="oc-b">
         <div class="oname">${esc(o.name)}${o.phone ? ` · <span class="muted">${esc(o.phone)}</span>` : ""}</div>
         <div class="muted" style="font-size:13px">Pickup: ${esc(o.pickup || "ASAP")}</div>
@@ -1156,7 +1157,7 @@ function renderOnline() {
         </div>
         <label class="fld"><span>Notice (optional)</span><input class="in" id="s-notice" data-s="notice" value="${esc(s.notice || "")}" placeholder="e.g. Pickup only · Open 8am–8pm"></label>
         <div class="fld"><span>GCash QR</span>
-          <div style="display:flex;gap:12px;align-items:center">${s.qr ? `<img src="${s.qr}" alt="GCash QR" class="qrthumb">` : `<div class="qrthumb empty">No QR</div>`}
+          <div style="display:flex;gap:12px;align-items:center">${safeImg(s.qr) ? `<img src="${safeImg(s.qr)}" alt="GCash QR" class="qrthumb">` : `<div class="qrthumb empty">No QR</div>`}
             <div style="display:flex;flex-direction:column;gap:6px"><label class="btn sm" for="s-qrfile" style="cursor:pointer">${s.qr ? "Replace" : "Upload"} QR</label>
             <input type="file" id="s-qrfile" accept="image/*" hidden>${s.qr ? `<button class="btn ghost sm" id="s-qrdel">Remove</button>` : ""}</div></div></div>
         <div class="fld"><span>Customer link</span><div class="result" style="font-size:13px;word-break:break-all" id="s-link">${esc(base)}order.html</div>
@@ -1167,7 +1168,7 @@ function renderOnline() {
         const g = slug(name), ph = ORD.photos[g];
         const ings = ingredientNames((arr[0][1].lines) || [], 0);
         return `<div class="ogroup">
-          <div class="og-h">${ph && ph.data ? `<img src="${ph.data}" alt="" class="othumb">` : `<div class="othumb empty">${esc((name[0] || "?").toUpperCase())}</div>`}
+          <div class="og-h">${ph && safeImg(ph.data) ? `<img src="${safeImg(ph.data)}" alt="" class="othumb">` : `<div class="othumb empty">${esc((name[0] || "?").toUpperCase())}</div>`}
             <div style="flex:1;min-width:0"><b>${esc(name)}</b><div class="faint" style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(ings.join(", ")) || "No ingredients"}</div></div>
             <label class="btn sm" for="ph-${g}" style="cursor:pointer">${ph ? "Change photo" : "Add photo"}</label><input type="file" id="ph-${g}" data-photo="${g}" accept="image/*" hidden></div>
           ${arr.map(([id, d]) => { const m = mirrorOf(id, d); return `<div class="og-r">

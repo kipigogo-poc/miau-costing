@@ -36,7 +36,7 @@ service cloud.firestore {
       allow get: if true;
 
       // Customers can create an order only while the shop is open, in the expected shape.
-      allow create: if id.size() >= 20 && shopOpen(shop) && validNewOrder(request.resource.data);
+      allow create: if id.matches('^[a-z0-9]{20,40}$') && shopOpen(shop) && validNewOrder(request.resource.data);
 
       // Customers may only add their GCash reference to an order still awaiting payment.
       allow update: if allowed() || submitsPaymentRef();
@@ -45,7 +45,7 @@ service cloud.firestore {
       function validNewOrder(d) {
         return d.keys().hasOnly(['code','name','phone','pickup','note','items','total','status','paymentRef','createdAt'])
           && d.keys().hasAll(['code','name','items','total','status','createdAt'])
-          && str(d.code, 4, 8) && str(d.name, 1, 60)
+          && d.code is string && d.code.matches('^[A-Z0-9]{4,8}$') && str(d.name, 1, 60)
           && optStr(d, 'phone', 20) && optStr(d, 'pickup', 40) && optStr(d, 'note', 200)
           && d.items is list && d.items.size() >= 1 && d.items.size() <= 30
           && d.total is number && d.total > 0 && d.total < 100000
@@ -57,7 +57,8 @@ service cloud.firestore {
         return resource.data.status == 'awaiting_payment'
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','paymentRef'])
           && request.resource.data.status == 'payment_submitted'
-          && str(request.resource.data.paymentRef, 6, 30);
+          && request.resource.data.paymentRef is string
+          && request.resource.data.paymentRef.matches('^[A-Za-z0-9]{6,30}$');
       }
     }
 

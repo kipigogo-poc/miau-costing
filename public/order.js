@@ -3,6 +3,16 @@ import { initializeApp, initializeFirestore, persistentLocalCache, doc, setDoc, 
 import { firebaseConfig, SHOP_ID } from "./config.js";
 
 const $ = s => document.querySelector(s);
+// ---- Untrusted data guards: everything from the database is cleaned before it reaches the page ----
+const num = v => (typeof v === "number" && isFinite(v) ? v : null);
+const safeImg = v => (typeof v === "string" && /^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(v) ? v : null);
+const safeId = v => String(v ?? "").replace(/[^A-Za-z0-9_-]/g, "");
+const ORDER_STATUSES = ["awaiting_payment", "payment_submitted", "confirmed", "preparing", "ready", "done", "cancelled"];
+const cleanMenu = m => ({ name: String(m.name ?? "Drink").slice(0, 80), group: safeId(m.group) || "drink", cup: num(m.cup), price: num(m.price),
+  kcal: num(m.kcal), available: m.available !== false, sort: num(m.sort) ?? 0, ingredients: Array.isArray(m.ingredients) ? m.ingredients.map(x => String(x).slice(0, 200)).slice(0, 40) : [] });
+const cleanOrder = o => ({ ...o, code: String(o.code ?? "").slice(0, 8), status: ORDER_STATUSES.includes(o.status) ? o.status : "awaiting_payment",
+  total: num(o.total) ?? 0, items: Array.isArray(o.items) ? o.items.slice(0, 30).map(l => ({ name: String(l?.name ?? "").slice(0, 80), cup: num(l?.cup), price: num(l?.price) ?? 0, qty: num(l?.qty) ?? 0 })) : [] });
+const cleanSettings = x => ({ ...x, qr: safeImg(x.qr) });
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const peso = v => "₱" + (+v || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const pesoShort = v => "₱" + ((+v || 0) % 1 ? (+v).toFixed(2) : (+v).toLocaleString("en-PH"));
@@ -23,15 +33,15 @@ const STATUS = {
 const STEPS = ["awaiting_payment", "payment_submitted", "paid", "preparing", "ready", "done"];
 
 /* ---------- data ---------- */
-onSnapshot(doc(db, ...P("settings", "public")), d => { S.settings = d.exists() ? d.data() : { open: false }; S.loaded |= 1; render(); }, () => { S.err = "Can't load the menu right now."; render(); });
-onSnapshot(collection(db, ...P("menu")), s => { S.menu = {}; s.forEach(d => { S.menu[d.id] = d.data(); }); S.loaded |= 2;
+onSnapshot(doc(db, ...P("settings", "public")), d => { S.settings = d.exists() ? cleanSettings(d.data()) : { open: false }; S.loaded |= 1; render(); }, () => { S.err = "Can't load the menu right now."; render(); });
+onSnapshot(collection(db, ...P("menu")), s => { S.menu = {}; s.forEach(d => { const id = safeId(d.id); if (id) S.menu[id] = cleanMenu(d.data()); }); S.loaded |= 2;
   for (const id of Object.keys(S.cart)) if (!S.menu[id] || !S.menu[id].available) delete S.cart[id]; saveCart(); render(); }, () => { S.err = "Can't load the menu right now."; render(); });
-onSnapshot(collection(db, ...P("photos")), s => { S.photos = {}; s.forEach(d => { S.photos[d.id] = d.data().data; }); render(); }, () => {});
+onSnapshot(collection(db, ...P("photos")), s => { S.photos = {}; s.forEach(d => { const img = safeImg(d.data().data); if (img) S.photos[safeId(d.id)] = img; }); render(); }, () => {});
 
 let unsubOrder = null;
 function watchOrder(id) {
   if (unsubOrder) unsubOrder(); S.orderId = id; S.order = null;
-  unsubOrder = onSnapshot(doc(db, ...P("orders", id)), d => { S.order = d.exists() ? d.data() : false; render(); }, () => { S.order = false; render(); });
+  unsubOrder = onSnapshot(doc(db, ...P("orders", id)), d => { S.order = d.exists() ? cleanOrder(d.data()) : false; render(); }, () => { S.order = false; render(); });
 }
 const q = new URLSearchParams(location.search).get("o"); if (q) watchOrder(q);
 
@@ -192,7 +202,7 @@ function renderOrder() {
       <a href="./order.html" class="back">‹ Back to menu</a>
       <div class="ocard">
         <div class="code">Order <b>#${esc(o.code)}</b></div>
-        <h2 class="st ${o.status === "ready" ? "ready" : o.status}">${t}</h2><p class="muted">${sub}</p>
+        <h2 class="st ${o.status}">${esc(t)}</h2><p class="muted">${esc(sub)}</p>
         ${o.status !== "cancelled" ? `<div class="steps">${["Pay", "Confirmed", "Preparing", "Ready"].map((l, i) => `<span class="${step >= [0, 2, 3, 4][i] ? "on" : ""}">${l}</span>`).join("")}</div>` : ""}
         ${o.status === "ready" || o.status === "done" ? `<div class="ready-art"><img src="brand/miau-cats-800.webp" alt="" width="800" height="400"></div>` : ""}
         ${o.status === "awaiting_payment" ? `
@@ -206,7 +216,7 @@ function renderOrder() {
             <button class="primary" id="paid">I've paid</button>
           </div>` : ""}
         ${o.paymentRef ? `<p class="muted">Reference: <b>${esc(o.paymentRef)}</b></p>` : ""}
-        <ul class="lines">${(o.items || []).map(l => `<li><span><b>${l.qty}×</b> ${esc(l.name)} <i>${l.cup ? l.cup + " ml" : ""}</i></span><span>${peso(l.price * l.qty)}</span></li>`).join("")}</ul>
+        <ul class="lines">${(o.items || []).map(l => `<li><span><b>${+l.qty || 0}×</b> ${esc(l.name)} <i>${l.cup ? Math.round(l.cup) + " ml" : ""}</i></span><span>${peso(l.price * l.qty)}</span></li>`).join("")}</ul>
         <div class="sum"><span>Total</span><b>${peso(o.total)}</b></div>
         <p class="muted" style="font-size:14px">${esc(o.name)} · Pickup ${esc(o.pickup || "ASAP")}${o.note ? ` · “${esc(o.note)}”` : ""}</p>
       </div>
@@ -226,7 +236,7 @@ document.addEventListener("click", async e => {
   else if (t.id === "place") place(t);
   else if (t.id === "copy-num") { try { await navigator.clipboard.writeText((S.settings.gcashNumber || "").replace(/\s/g, "")); t.textContent = "Copied"; } catch {} }
   else if (t.id === "paid") {
-    const ref = $("#ref").value.replace(/\s/g, "");
+    const ref = $("#ref").value.replace(/[^A-Za-z0-9]/g, "");
     if (ref.length < 6) { $("#ref-err").textContent = "Enter the reference number from your GCash receipt."; $("#ref").focus(); return; }
     t.disabled = true; t.textContent = "Sending…";
     try { await updateDoc(doc(db, ...P("orders", S.orderId)), { status: "payment_submitted", paymentRef: ref }); }

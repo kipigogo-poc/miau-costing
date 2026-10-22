@@ -26,8 +26,26 @@ jobs:
       - name: Check config, rules and scripts
         run: node scripts/check.mjs
 
+  security:
+    # Attacks the database rules (strangers, customers, non-staff) using Google's Firestore emulator.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Database security tests
+        working-directory: tests
+        run: |
+          npm ci --no-audit --no-fund
+          npx --yes firebase-tools@15.31.0 emulators:exec --only firestore --project demo-miau "node rules.test.mjs"
+
   deploy:
-    needs: check
+    needs: [check, security]
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production

@@ -1,0 +1,10 @@
+{
+  "name": "miau-rules-tests",
+  "private": true,
+  "type": "module",
+  "description": "Attack tests for firestore.rules, run against Google's Firestore emulator in CI.",
+  "dependencies": {
+    "@firebase/rules-unit-testing": "6.0.0",
+    "firebase": "^13.0.0"
+  }
+}
