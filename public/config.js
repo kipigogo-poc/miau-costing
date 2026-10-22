@@ -2,7 +2,10 @@
 // This identifies the project; it is not a secret. Access is controlled by firestore.rules.
 export const firebaseConfig = {
   apiKey: "AIzaSyBjgviL-b_H1LSl_00xO9GKGhO4zvqtf_A",
-  authDomain: "miauxeveryday.firebaseapp.com",
+  // Sign-in runs on the same address as the app (miauxeveryday.web.app/__/auth/…). Phones and browsers that block
+  // cross-site storage (installed iPhone app, Safari privacy, in-app browsers) need this. Requires the redirect URI
+  // https://miauxeveryday.web.app/__/auth/handler in Google Cloud → Credentials → OAuth client.
+  authDomain: /\.(web\.app|firebaseapp\.com)$/.test(location.hostname) ? location.host : "miauxeveryday.firebaseapp.com",
   projectId: "miauxeveryday",
   storageBucket: "miauxeveryday.firebasestorage.app",
   messagingSenderId: "41634615908",
