@@ -14,7 +14,7 @@ async function call(method, url, body) {
     if (r.status === 401 && attempt === 0) { tok = await window.miauSheetsToken(true); continue; }
     if (!r.ok) {
       let m = ""; try { m = (await r.json()).error.message; } catch {}
-      if (r.status === 403 && /insufficient.*scope/i.test(m)) { await window.miauSheetsToken(true).catch(() => {}); throw new Error("Google Sheets permission wasn't given. Tap the button again and, on Google's screen, tick the box for Google Sheets."); }
+      if (r.status === 403 && /insufficient.*scope/i.test(m)) { if (window.miauSheetsForget) window.miauSheetsForget(); throw new Error("Google Sheets permission wasn't given. Tap the button again and, on Google's screen, tick the box for Google Sheets."); }
       if (r.status === 403 && /has not been used|disabled/i.test(m)) throw new Error("The Google Sheets API isn't turned on for this project yet (Google Cloud → APIs & Services → Library → Google Sheets API → Enable).");
       if (r.status === 403 || r.status === 404) throw new Error("Can't open that sheet with your Google account. Ask the owner to share it with you (Editor).");
       throw new Error(m || "Google Sheets error " + r.status);

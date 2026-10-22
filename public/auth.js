@@ -97,6 +97,7 @@ window.miauSheetsToken = async (force) => {
   if (!c || !c.accessToken) throw new Error("Google didn't give permission to use Sheets.");
   sheetsTok = { t: c.accessToken, exp: Date.now() + 55 * 60 * 1000 }; return sheetsTok.t;
 };
+window.miauSheetsForget = () => { sheetsTok = null; };
 window.miauUserEmail = () => (auth.currentUser && auth.currentUser.email) || "";
 
 let denied = false;
