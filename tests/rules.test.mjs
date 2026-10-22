@@ -10,6 +10,7 @@ const anon = env.unauthenticatedContext().firestore();
 const stranger = env.authenticatedContext("u-stranger", { email: "someone@gmail.com", email_verified: true }).firestore();
 const staff = env.authenticatedContext("u-staff", { email: "pop.rim.25@gmail.com", email_verified: true }).firestore();
 const staffCaps = env.authenticatedContext("u-staff2", { email: "POP.RIM.25@GMAIL.COM", email_verified: true }).firestore();
+const staff2 = env.authenticatedContext("u-staff4", { email: "Dionisioarevalo@gmail.com", email_verified: true }).firestore();
 const staffUnverified = env.authenticatedContext("u-staff3", { email: "pop.rim.25@gmail.com", email_verified: false }).firestore();
 
 const ID = "abcdefghijkmnpqrstuv23", ID2 = "zyxwvutsrqpnmkjihgfe99";
@@ -98,6 +99,7 @@ await t("Staff: list orders", "allow", () => getDocs(collection(staff, SHOP, "or
 await t("Staff: move order to preparing", "allow", () => updateDoc(doc(staff, SHOP, "orders", ID), { status: "preparing" }));
 await t("Staff: publish menu", "allow", () => setDoc(doc(staff, SHOP, "menu", "ia12"), { name: "Iced Americano", price: 120 }));
 await t("Staff: open/close shop", "allow", () => updateDoc(doc(staff, SHOP, "settings", "public"), { open: false }));
+await t("Second staff (Dionisio): list orders and edit costs", "allow", () => getDocs(collection(staff2, SHOP, "orders")).then(() => setDoc(doc(staff2, SHOP, "items", "milk"), { name: "Milk", packPrice: 98 })));
 // --- Shop closed
 await t("Customer: order while shop is closed", "deny", () => setDoc(doc(anon, SHOP, "orders", "p" + ID), order()));
 
