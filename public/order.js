@@ -1,15 +1,16 @@
-// Customer ordering page. No login. Reads the public menu, creates an order, shows the GCash QR, accepts a reference number.
+// MIAU customer ordering page. No login. Reads the public menu, creates an order, shows the GCash QR, accepts a reference number.
 import { initializeApp, initializeFirestore, persistentLocalCache, doc, setDoc, updateDoc, onSnapshot, collection, serverTimestamp } from "./firebase-public.js";
 import { firebaseConfig, SHOP_ID } from "./config.js";
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const peso = v => "₱" + (+v || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const pesoShort = v => "₱" + ((+v || 0) % 1 ? (+v).toFixed(2) : (+v).toLocaleString("en-PH"));
 const app = initializeApp(firebaseConfig);
 let db; try { db = initializeFirestore(app, { localCache: persistentLocalCache() }); } catch { db = initializeFirestore(app, {}); }
 const P = (...p) => ["shops", SHOP_ID, ...p];
 
-const S = { menu: {}, photos: {}, settings: null, cart: {}, order: null, orderId: null, loaded: 0, err: "" };
+const S = { menu: {}, photos: {}, settings: null, cart: {}, pick: {}, filter: "all", order: null, orderId: null, loaded: 0, err: "" };
 try { S.cart = JSON.parse(localStorage.getItem("cart") || "{}"); } catch {}
 const saveCart = () => { try { localStorage.setItem("cart", JSON.stringify(S.cart)); } catch {} };
 const myOrders = () => { try { return JSON.parse(localStorage.getItem("myOrders") || "[]"); } catch { return []; } };
@@ -17,7 +18,7 @@ const STATUS = {
   awaiting_payment: ["Pay to confirm", "Send the exact amount, then enter your reference number."],
   payment_submitted: ["Checking your payment", "We'll confirm in a moment."],
   paid: ["Payment confirmed", "Your order is in the queue."], preparing: ["Preparing", "Your drinks are being made."],
-  ready: ["Ready for pickup", "Show this screen at the counter."], done: ["Picked up", "Thank you!"], cancelled: ["Cancelled", "Please contact the shop if you've already paid."]
+  ready: ["Ready for pickup!", "Show this screen at the counter."], done: ["Picked up", "Thank you! See you again."], cancelled: ["Cancelled", "Please contact the shop if you've already paid."]
 };
 const STEPS = ["awaiting_payment", "payment_submitted", "paid", "preparing", "ready", "done"];
 
@@ -34,62 +35,102 @@ function watchOrder(id) {
 }
 const q = new URLSearchParams(location.search).get("o"); if (q) watchOrder(q);
 
-/* ---------- render ---------- */
+/* ---------- helpers ---------- */
 const view = $("#view");
-function cartCount() { return Object.values(S.cart).reduce((a, b) => a + b, 0); }
-function cartTotal() { return Object.entries(S.cart).reduce((a, [id, n]) => a + (S.menu[id] ? S.menu[id].price * n : 0), 0); }
+const cartCount = () => Object.values(S.cart).reduce((a, b) => a + b, 0);
+const cartTotal = () => Object.entries(S.cart).reduce((a, [id, n]) => a + (S.menu[id] ? S.menu[id].price * n : 0), 0);
+function groups() {
+  const g = {};
+  Object.entries(S.menu).sort((a, b) => (a[1].sort ?? 0) - (b[1].sort ?? 0)).forEach(([id, m]) => {
+    (g[m.group] = g[m.group] || { name: m.name, ingredients: m.ingredients, rows: [] }).rows.push([id, m]);
+  });
+  return Object.entries(g);
+}
+function picked(g, rows) {
+  const cur = S.pick[g];
+  if (cur && rows.some(([id, m]) => id === cur && m.available)) return cur;
+  const first = rows.find(([, m]) => m.available) || rows[0];
+  return first && first[0];
+}
+const thumb = (g, name, cls) => S.photos[g] ? `<img src="${S.photos[g]}" alt="${esc(name)}" loading="lazy">` : `<span class="mono" aria-hidden="true">${esc((name[0] || "?").toUpperCase())}</span>`;
+function updateBag() {
+  const n = cartCount(), open = S.settings && S.settings.open;
+  $("#bagn").textContent = n;
+  $("#bar").hidden = !(n && open) || !!S.orderId;
+  $("#bar-t").textContent = `${n} item${n === 1 ? "" : "s"} · ${peso(cartTotal())}`;
+}
+
+/* ---------- menu ---------- */
 function render() {
   const s = S.settings || {};
-  $("#shop").textContent = s.shopName || "Order";
-  document.title = (s.shopName ? s.shopName + " · " : "") + "Order";
+  document.title = "MIAU · " + (S.orderId ? "Your order" : "Order");
+  $("#announce").textContent = (s.notice || "Order ahead · Pick up · Pay with GCash").toUpperCase();
+  updateBag();
+  if ($("#sheet").classList.contains("on") && !S.orderId) renderBag();
   if (S.orderId) return renderOrder();
   if (S.err) { view.innerHTML = `<div class="empty">${esc(S.err)}</div>`; return; }
   if ((S.loaded & 3) !== 3) { view.innerHTML = '<div class="empty">Loading menu…</div>'; return; }
-  const groups = {};
-  Object.entries(S.menu).sort((a, b) => (a[1].sort ?? 0) - (b[1].sort ?? 0)).forEach(([id, m]) => { (groups[m.group] = groups[m.group] || { name: m.name, ingredients: m.ingredients, rows: [] }).rows.push([id, m]); });
-  const mine = myOrders().slice(-3).reverse();
+  const all = groups(), mine = myOrders().slice(-3).reverse();
+  const shown = all.filter(([g]) => S.filter === "all" || S.filter === g);
   view.innerHTML = `
-    ${!s.open ? `<div class="banner bad">We're closed for online orders right now.</div>` : ""}
-    ${s.notice ? `<div class="banner">${esc(s.notice)}</div>` : ""}
-    ${mine.length ? `<div class="mine">${mine.map(o => `<a href="?o=${encodeURIComponent(o.id)}" class="chip">Order #${esc(o.code)} ›</a>`).join("")}</div>` : ""}
-    <div class="grid">${Object.entries(groups).map(([g, grp]) => `
-      <article class="item">
-        <div class="ph">${S.photos[g] ? `<img src="${S.photos[g]}" alt="${esc(grp.name)}" loading="lazy">` : `<span>${esc((grp.name[0] || "?").toUpperCase())}</span>`}</div>
+    <section class="hero">
+      <div class="hero-art"><img src="brand/miau-cats-800.webp" srcset="brand/miau-cats-800.webp 800w, brand/miau-cats-1600.webp 1600w" sizes="(min-width:1240px) 1208px, 100vw" alt="Four cool cats in sunglasses lounging on the MIAU letters" width="1600" height="800"></div>
+      <div class="hero-copy">
+        <div><h1>Shop all</h1><p>Handcrafted coffee and treats. Order ahead, pay with GCash, skip the line.</p></div>
+        <span class="status ${s.open ? "" : "closed"}"><i></i>${s.open ? "Open for orders" : "Closed for online orders"}</span>
+      </div>
+      ${mine.length ? `<div class="mine">${mine.map(o => `<a href="?o=${encodeURIComponent(o.id)}">Your order #${esc(o.code)} ›</a>`).join("")}</div>` : ""}
+    </section>
+    ${all.length > 1 ? `<nav class="filters" aria-label="Filter drinks">${[["all", "All"], ...all.map(([g, grp]) => [g, grp.name])].map(([k, l]) => `<button class="pill" data-filter="${esc(k)}" aria-pressed="${S.filter === k}">${esc(l)}</button>`).join("")}</nav>` : ""}
+    <div class="grid">${shown.map(([g, grp], i) => {
+      const id = picked(g, grp.rows), m = S.menu[id] || {}, n = S.cart[id] || 0, anyAvail = grp.rows.some(([, x]) => x.available);
+      return `<article class="item">
+        <div class="tile t${i % 3}">${thumb(g, grp.name)}
+          ${!anyAvail ? `<span class="tag">Sold out</span>` : ""}
+          ${m.kcal != null ? `<span class="kcalchip"><span class="kcal">${m.kcal} kcal</span></span>` : ""}
+        </div>
         <div class="ib">
           <h2>${esc(grp.name)}</h2>
-          ${grp.ingredients && grp.ingredients.length ? `<p class="ing">${esc(grp.ingredients.join(", "))}</p>` : ""}
-          <div class="sizes">${grp.rows.map(([id, m]) => {
-            const n = S.cart[id] || 0;
-            return `<div class="sz ${m.available ? "" : "off"}">
-              <div><b>${m.cup ? m.cup + " ml" : "Regular"}</b><span class="kcal">${m.kcal != null ? m.kcal + " kcal" : ""}</span></div>
-              <div class="pr">${peso(m.price)}</div>
-              ${!m.available ? `<span class="so">Sold out</span>` : !s.open ? "" :
-                n ? `<div class="qty"><button data-dec="${id}" aria-label="Remove one">−</button><b>${n}</b><button data-inc="${id}" aria-label="Add one">+</button></div>`
-                  : `<button class="add" data-inc="${id}" aria-label="Add ${esc(grp.name)} ${m.cup || ""} ml">Add</button>`}
-            </div>`; }).join("")}</div>
+          ${grp.ingredients && grp.ingredients.length ? `<p class="ing"><b>Inside</b>${esc(grp.ingredients.join(", "))}</p>` : ""}
+          ${grp.rows.length > 1 || grp.rows[0][1].cup ? `<div class="sizes" role="group" aria-label="Size">${grp.rows.map(([rid, r]) =>
+            `<button class="sz" data-pick="${esc(g)}" data-id="${rid}" aria-pressed="${rid === id}" ${r.available ? "" : "disabled"}><b>${r.cup ? r.cup + " ml" : "Regular"}</b><span>${pesoShort(r.price)}</span>${r.kcal != null ? `<span>${r.kcal} kcal</span>` : ""}</button>`).join("")}</div>` : ""}
+          <div class="buy"><span class="price">${peso(m.price)}</span>
+            ${!s.open || !m.available ? `<button class="add" disabled>${!m.available ? "Sold out" : "Closed"}</button>` :
+              n ? `<div class="qty"><button data-dec="${id}" aria-label="Remove one">−</button><b>${n}</b><button data-inc="${id}" aria-label="Add one">+</button></div>`
+                : `<button class="add" data-inc="${id}" aria-label="Add ${esc(grp.name)} ${m.cup ? m.cup + " ml" : ""} to bag">Add to bag</button>`}
+          </div>
         </div>
-      </article>`).join("") || `<div class="empty">The menu isn't online yet.</div>`}</div>
-    <p class="foot">Calories are estimates from ingredient labels.</p>`;
-  const n = cartCount();
-  $("#bar").hidden = !(n && s.open);
-  $("#bar-t").textContent = `${n} item${n > 1 ? "s" : ""} · ${peso(cartTotal())}`;
+      </article>`; }).join("") || `<div class="empty">The menu isn't online yet. Check back soon!</div>`}</div>`;
 }
-function renderCheckout() {
+
+/* ---------- bag ---------- */
+function renderBag() {
   const lines = Object.entries(S.cart).filter(([id]) => S.menu[id]);
+  if (!lines.length) {
+    $("#sheet").innerHTML = `
+      <div class="sh-h"><h3>Your bag</h3><button class="x" id="close" aria-label="Close">✕</button></div>
+      <div class="sh-b"><div class="bag-empty"><img src="brand/miau-cats-800.webp" alt=""><p>Looks like your bag is empty.<br>Let's fix that.</p><button class="primary" id="close2" style="width:auto;padding:14px 26px">Start shopping</button></div></div>`;
+    return;
+  }
+  const keep = {}; ["c-name", "c-phone", "c-pick", "c-note"].forEach(k => { const el = document.getElementById(k); if (el) keep[k] = el.value; });
   $("#sheet").innerHTML = `
-    <div class="sh-h"><h3>Your order</h3><button class="x" id="close" aria-label="Close">✕</button></div>
+    <div class="sh-h"><h3>Your bag</h3><button class="x" id="close" aria-label="Close">✕</button></div>
     <div class="sh-b">
-      <ul class="lines">${lines.map(([id, n]) => { const m = S.menu[id]; return `<li><span><b>${n}×</b> ${esc(m.name)} <i>${m.cup ? m.cup + " ml" : ""}</i></span><span>${peso(m.price * n)}</span></li>`; }).join("")}</ul>
-      <div class="tot"><span>Total</span><b>${peso(cartTotal())}</b></div>
+      ${lines.map(([id, n]) => { const m = S.menu[id]; return `<div class="bl">
+        <div class="th t${0}" style="background:var(--sand)">${thumb(m.group, m.name)}</div>
+        <div><h4>${esc(m.name)}</h4><small>${m.cup ? m.cup + " ml · " : ""}${peso(m.price)}</small></div>
+        <div class="qty"><button data-dec="${id}" aria-label="Remove one">−</button><b>${n}</b><button data-inc="${id}" aria-label="Add one">+</button></div>
+      </div>`; }).join("")}
+      <div class="sum"><span>Total</span><b>${peso(cartTotal())}</b></div>
       <label class="f"><span>Your name</span><input id="c-name" autocomplete="given-name" maxlength="60" required></label>
       <label class="f"><span>Mobile (optional)</span><input id="c-phone" inputmode="tel" autocomplete="tel" maxlength="20"></label>
       <label class="f"><span>Pickup</span><select id="c-pick"><option>ASAP</option><option>In 15 minutes</option><option>In 30 minutes</option><option>In 45 minutes</option><option>In 1 hour</option></select></label>
       <label class="f"><span>Note (optional)</span><input id="c-note" maxlength="200" placeholder="Less ice, no sugar…"></label>
-      <div class="err" id="c-err" role="alert"></div>
     </div>
-    <div class="sh-f"><button class="primary" id="place">Place order · ${peso(cartTotal())}</button></div>`;
-  $("#sheet").classList.add("on"); $("#shade").classList.add("on"); setTimeout(() => $("#c-name").focus(), 200);
+    <div class="sh-f"><div class="err" id="c-err" role="alert"></div><button class="primary" id="place">Place order · ${peso(cartTotal())}</button></div>`;
+  Object.entries(keep).forEach(([k, v]) => { const el = document.getElementById(k); if (el) el.value = v; });
 }
+function openBag() { renderBag(); $("#sheet").classList.add("on"); $("#shade").classList.add("on"); setTimeout(() => { const n = $("#c-name"); if (n && !n.value) n.focus(); }, 260); }
 const closeSheet = () => { $("#sheet").classList.remove("on"); $("#shade").classList.remove("on"); };
 const randId = n => { const a = new Uint8Array(n), c = "abcdefghijkmnpqrstuvwxyz23456789"; crypto.getRandomValues(a); return [...a].map(x => c[x % c.length]).join(""); };
 const randCode = () => { const a = new Uint8Array(4), c = "ACDEFHJKMNPRTUVWXY34679"; crypto.getRandomValues(a); return [...a].map(x => c[x % c.length]).join(""); };
@@ -105,9 +146,11 @@ async function place(btn) {
   try {
     await setDoc(doc(db, ...P("orders", id)), order);
     const mine = myOrders(); mine.push({ id, code }); localStorage.setItem("myOrders", JSON.stringify(mine.slice(-10)));
-    S.cart = {}; saveCart(); closeSheet(); history.pushState({}, "", "?o=" + id); watchOrder(id);
+    S.cart = {}; saveCart(); closeSheet(); history.pushState({}, "", "?o=" + id); watchOrder(id); window.scrollTo(0, 0);
   } catch (e) { btn.disabled = false; btn.textContent = "Place order"; $("#c-err").textContent = S.settings && !S.settings.open ? "The shop just closed for orders." : "Couldn't place your order. Check your connection and try again."; }
 }
+
+/* ---------- order status ---------- */
 function renderOrder() {
   $("#bar").hidden = true;
   const o = S.order, s = S.settings || {};
@@ -116,35 +159,40 @@ function renderOrder() {
   const [t, sub] = STATUS[o.status] || [o.status, ""], step = STEPS.indexOf(o.status);
   view.innerHTML = `
     <div class="ord">
-      <a href="./order.html" class="back">‹ Menu</a>
-      <div class="code">Order <b>#${esc(o.code)}</b></div>
-      <h2 class="st ${o.status}">${t}</h2><p class="muted">${sub}</p>
-      ${o.status !== "cancelled" ? `<div class="steps">${["Pay", "Confirmed", "Preparing", "Ready"].map((l, i) => `<span class="${step >= [0, 2, 3, 4][i] ? "on" : ""}">${l}</span>`).join("")}</div>` : ""}
-      ${o.status === "awaiting_payment" ? `
-        <div class="pay">
-          <div class="amt">Pay exactly <b>${peso(o.total)}</b></div>
-          ${s.qr ? `<img src="${s.qr}" alt="GCash QR code" class="qr"><a class="ghost" href="${s.qr}" download="gcash-qr.png">Save QR image</a>
-            <p class="hint">On this phone? Save the QR, then upload it in your GCash app's QR scanner.</p>` : ""}
-          ${s.gcashNumber ? `<div class="gnum">GCash <b>${esc(s.gcashNumber)}</b>${s.gcashName ? ` · ${esc(s.gcashName)}` : ""} <button class="ghost sm" id="copy-num">Copy</button></div>` : ""}
-          <label class="f"><span>GCash reference number</span><input id="ref" inputmode="numeric" autocomplete="off" maxlength="30" placeholder="From your GCash receipt"></label>
-          <div class="err" id="ref-err" role="alert"></div>
-          <button class="primary" id="paid">I've paid</button>
-        </div>` : ""}
-      ${o.paymentRef ? `<p class="muted">Reference: <b>${esc(o.paymentRef)}</b></p>` : ""}
-      <ul class="lines">${(o.items || []).map(l => `<li><span><b>${l.qty}×</b> ${esc(l.name)} <i>${l.cup ? l.cup + " ml" : ""}</i></span><span>${peso(l.price * l.qty)}</span></li>`).join("")}</ul>
-      <div class="tot"><span>Total</span><b>${peso(o.total)}</b></div>
-      <p class="muted" style="font-size:13px">${esc(o.name)} · Pickup ${esc(o.pickup || "ASAP")}${o.note ? ` · “${esc(o.note)}”` : ""}</p>
-      <p class="hint">Keep this page. It updates by itself.</p>
+      <a href="./order.html" class="back">‹ Back to menu</a>
+      <div class="ocard">
+        <div class="code">Order <b>#${esc(o.code)}</b></div>
+        <h2 class="st ${o.status === "ready" ? "ready" : o.status}">${t}</h2><p class="muted">${sub}</p>
+        ${o.status !== "cancelled" ? `<div class="steps">${["Pay", "Confirmed", "Preparing", "Ready"].map((l, i) => `<span class="${step >= [0, 2, 3, 4][i] ? "on" : ""}">${l}</span>`).join("")}</div>` : ""}
+        ${o.status === "ready" || o.status === "done" ? `<div class="ready-art"><img src="brand/miau-cats-800.webp" alt="" width="800" height="400"></div>` : ""}
+        ${o.status === "awaiting_payment" ? `
+          <div class="pay">
+            <div class="amt">Pay exactly <b>${peso(o.total)}</b></div>
+            ${s.qr ? `<img src="${s.qr}" alt="GCash QR code" class="qr"><a class="ghost" href="${s.qr}" download="miau-gcash-qr.png">Save QR image</a>
+              <p class="hint">On this phone? Save the QR, then upload it in your GCash app's QR scanner.</p>` : ""}
+            ${s.gcashNumber ? `<div class="gnum">GCash <b>${esc(s.gcashNumber)}</b>${s.gcashName ? ` · ${esc(s.gcashName)}` : ""} <button class="ghost sm" id="copy-num">Copy</button></div>` : ""}
+            <label class="f"><span>GCash reference number</span><input id="ref" inputmode="numeric" autocomplete="off" maxlength="30" placeholder="From your GCash receipt"></label>
+            <div class="err" id="ref-err" role="alert"></div>
+            <button class="primary" id="paid">I've paid</button>
+          </div>` : ""}
+        ${o.paymentRef ? `<p class="muted">Reference: <b>${esc(o.paymentRef)}</b></p>` : ""}
+        <ul class="lines">${(o.items || []).map(l => `<li><span><b>${l.qty}×</b> ${esc(l.name)} <i>${l.cup ? l.cup + " ml" : ""}</i></span><span>${peso(l.price * l.qty)}</span></li>`).join("")}</ul>
+        <div class="sum"><span>Total</span><b>${peso(o.total)}</b></div>
+        <p class="muted" style="font-size:14px">${esc(o.name)} · Pickup ${esc(o.pickup || "ASAP")}${o.note ? ` · “${esc(o.note)}”` : ""}</p>
+      </div>
+      <p class="hint">Keep this page open. It updates by itself.</p>
     </div>`;
 }
 
 /* ---------- events ---------- */
 document.addEventListener("click", async e => {
   const t = e.target.closest("button"); if (!t) return;
-  if (t.dataset.inc) { S.cart[t.dataset.inc] = Math.min(20, (S.cart[t.dataset.inc] || 0) + 1); saveCart(); render(); }
+  if (t.dataset.filter) { S.filter = t.dataset.filter; render(); }
+  else if (t.dataset.pick) { S.pick[t.dataset.pick] = t.dataset.id; render(); }
+  else if (t.dataset.inc) { S.cart[t.dataset.inc] = Math.min(20, (S.cart[t.dataset.inc] || 0) + 1); saveCart(); render(); }
   else if (t.dataset.dec) { const n = (S.cart[t.dataset.dec] || 0) - 1; if (n > 0) S.cart[t.dataset.dec] = n; else delete S.cart[t.dataset.dec]; saveCart(); render(); }
-  else if (t.id === "checkout") renderCheckout();
-  else if (t.id === "close") closeSheet();
+  else if (t.id === "checkout" || t.id === "bagbtn") openBag();
+  else if (t.id === "close" || t.id === "close2") closeSheet();
   else if (t.id === "place") place(t);
   else if (t.id === "copy-num") { try { await navigator.clipboard.writeText((S.settings.gcashNumber || "").replace(/\s/g, "")); t.textContent = "Copied"; } catch {} }
   else if (t.id === "paid") {
@@ -156,5 +204,7 @@ document.addEventListener("click", async e => {
   }
 });
 $("#shade").addEventListener("click", closeSheet);
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeSheet(); });
+window.addEventListener("scroll", () => $("#hdr").classList.toggle("scrolled", scrollY > 8), { passive: true });
 window.addEventListener("popstate", () => { const id = new URLSearchParams(location.search).get("o"); if (id) watchOrder(id); else { S.orderId = null; if (unsubOrder) unsubOrder(); render(); } });
 render();
