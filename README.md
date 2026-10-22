@@ -18,7 +18,7 @@ Every push to `main` is checked and then deployed automatically by GitHub Action
 ### 2. Fill in three files and commit
 | File | What to change |
 |---|---|
-| `public/config.js` | Paste the web config. Set `authDomain` to `YOUR-PROJECT-ID.web.app`. Set `SHOP_NAME`. |
+| `public/config.js` | Paste the web config (keep `authDomain` as Firebase gives it). Set `SHOP_NAME`. |
 | `firestore.rules` | Replace `your.email@gmail.com` with your Google email (lowercase). |
 | `.firebaserc` | Replace `your-project` with your project ID. |
 

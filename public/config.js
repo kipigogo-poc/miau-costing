@@ -1,12 +1,12 @@
-// 1) Paste your Firebase web config here (Firebase console → Project settings → Your apps → Web app).
-// 2) Set authDomain to your site's domain (e.g. "your-project.web.app") so Google sign-in works on iPhone Safari.
+// Firebase web config (Firebase console → Project settings → Your apps → Web app).
+// This identifies the project; it is not a secret. Access is controlled by firestore.rules.
 export const firebaseConfig = {
-  apiKey: "PASTE_API_KEY",
-  authDomain: "your-project.web.app",
-  projectId: "your-project",
-  storageBucket: "your-project.appspot.com",
-  messagingSenderId: "PASTE_SENDER_ID",
-  appId: "PASTE_APP_ID"
+  apiKey: "AIzaSyBXz_ITdVn_92oAZrNEDEZ4ElioFktMo-M",
+  authDomain: "miaucoffee.firebaseapp.com",
+  projectId: "miaucoffee",
+  storageBucket: "miaucoffee.firebasestorage.app",
+  messagingSenderId: "291350773104",
+  appId: "1:291350773104:web:9c833fcaaa3a2982eb23b5"
 };
 
 // Your shop. Later, each branch can get its own id (e.g. "branch-2").
