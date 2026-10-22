@@ -1,0 +1,15 @@
+# Firebase
+.firebase/
+firebase-debug*.log
+firestore-debug*.log
+ui-debug*.log
+
+# Never commit keys or business data
+*service-account*.json
+*-sa.json
+serviceAccount*.json
+*backup*.json
+
+# Tooling
+node_modules/
+.DS_Store

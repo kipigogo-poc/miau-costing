@@ -1,0 +1,67 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- Staff: who can sign in and manage everything. Add staff emails here. ----
+    function allowed() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower() in [
+          'your.email@gmail.com'
+        ];
+    }
+    function str(v, lo, hi) { return v is string && v.size() >= lo && v.size() <= hi; }
+    function optStr(d, k, hi) { return !(k in d) || d[k] == null || str(d[k], 0, hi); }
+    function shopOpen(shop) {
+      return get(/databases/$(database)/documents/shops/$(shop)/settings/public).data.get('open', false) == true;
+    }
+
+    // ---- Private: costing data (staff only) ----
+    match /shops/{shop}/items/{id}  { allow read, write: if allowed(); }
+    match /shops/{shop}/drinks/{id} { allow read, write: if allowed(); }
+
+    // ---- Public: what customers see (prices, calories, ingredient names, photos) ----
+    match /shops/{shop}/menu/{id}   { allow read: if true; allow write: if allowed(); }
+    match /shops/{shop}/photos/{id} { allow read: if true; allow write: if allowed(); }
+    match /shops/{shop}/settings/{id} {
+      allow get: if id == 'public' || allowed();
+      allow list: if allowed();
+      allow write: if allowed();
+    }
+
+    // ---- Orders ----
+    match /shops/{shop}/orders/{id} {
+      // Staff see the whole list. A customer can open one order only by its long random id.
+      allow list: if allowed();
+      allow get: if true;
+
+      // Customers can create an order only while the shop is open, in the expected shape.
+      allow create: if id.size() >= 20 && shopOpen(shop) && validNewOrder(request.resource.data);
+
+      // Customers may only add their GCash reference to an order still awaiting payment.
+      allow update: if allowed() || submitsPaymentRef();
+      allow delete: if allowed();
+
+      function validNewOrder(d) {
+        return d.keys().hasOnly(['code','name','phone','pickup','note','items','total','status','paymentRef','createdAt'])
+          && d.keys().hasAll(['code','name','items','total','status','createdAt'])
+          && str(d.code, 4, 8) && str(d.name, 1, 60)
+          && optStr(d, 'phone', 20) && optStr(d, 'pickup', 40) && optStr(d, 'note', 200)
+          && d.items is list && d.items.size() >= 1 && d.items.size() <= 30
+          && d.total is number && d.total > 0 && d.total < 100000
+          && d.status == 'awaiting_payment'
+          && (!('paymentRef' in d) || d.paymentRef == null)
+          && d.createdAt == request.time;
+      }
+      function submitsPaymentRef() {
+        return resource.data.status == 'awaiting_payment'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','paymentRef'])
+          && request.resource.data.status == 'payment_submitted'
+          && str(request.resource.data.paymentRef, 6, 30);
+      }
+    }
+
+    // Everything else is closed.
+    match /{document=**} { allow read, write: if false; }
+  }
+}
