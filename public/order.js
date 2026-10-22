@@ -1,5 +1,5 @@
 // MIAU customer ordering page. No login. Reads the public menu, creates an order, shows the GCash QR, accepts a reference number.
-import { initializeApp, initializeFirestore, persistentLocalCache, doc, setDoc, updateDoc, onSnapshot, collection, serverTimestamp } from "./firebase-public.js";
+import { initializeApp, initializeFirestore, persistentLocalCache, doc, setDoc, updateDoc, onSnapshot, collection, serverTimestamp, getDoc, getDocFromCache } from "./firebase-public.js";
 import { firebaseConfig, SHOP_ID } from "./config.js";
 
 const $ = s => document.querySelector(s);
@@ -34,14 +34,38 @@ const STEPS = ["awaiting_payment", "payment_submitted", "paid", "preparing", "re
 
 /* ---------- data ---------- */
 onSnapshot(doc(db, ...P("settings", "public")), d => { S.settings = d.exists() ? cleanSettings(d.data()) : { open: false }; S.loaded |= 1; render(); }, () => { S.err = "Can't load the menu right now."; render(); });
-onSnapshot(collection(db, ...P("menu")), s => { S.menu = {}; s.forEach(d => { const id = safeId(d.id); if (id) S.menu[id] = cleanMenu(d.data()); }); S.loaded |= 2;
+onSnapshot(collection(db, ...P("menu")), s => { S.menu = {}; s.forEach(d => { const id = safeId(d.id); if (id) S.menu[id] = cleanMenu(d.data()); }); S.loaded |= 2; syncPhotos();
   for (const id of Object.keys(S.cart)) if (!S.menu[id] || !S.menu[id].available) delete S.cart[id]; saveCart(); render(); }, () => { S.err = "Can't load the menu right now."; render(); });
-onSnapshot(collection(db, ...P("photos")), s => { S.photos = {}; s.forEach(d => { const img = safeImg(d.data().data); if (img) S.photos[safeId(d.id)] = img; }); render(); }, () => {});
+// Photos: a tiny index (photos/_index) lists each photo's version. A photo is downloaded only when it's new or changed;
+// otherwise it comes from this phone's saved copy. Keeps the free database quota for orders, not repeat image downloads.
+S.photoIndex = null; S.photoV = {};
+const PHOTO_IDX = "_index", QR_ID = "gcash-qr";
+async function loadPhoto(id, v) {
+  if (S.photoV[id] === v) return; S.photoV[id] = v;
+  const ref = doc(db, ...P("photos", id));
+  let d = null;
+  try { const c = await getDocFromCache(ref); if (c.exists() && c.data().updatedAt === v) d = c.data(); } catch {}
+  if (!d) { try { const r = await getDoc(ref); d = r.exists() ? r.data() : null; } catch { S.photoV[id] = null; return; } }
+  const img = d && safeImg(d.data); if (img) S.photos[id] = img; else delete S.photos[id];
+  render();
+}
+function syncPhotos() {
+  const idx = S.photoIndex; if (!idx) return;
+  const want = new Set(Object.values(S.menu).map(m => m.group));
+  if (S.order && S.order.status === "awaiting_payment") want.add(QR_ID);
+  for (const id of want) { const v = idx[id]; if (typeof v === "number") loadPhoto(id, v); else if (S.photos[id]) { delete S.photos[id]; delete S.photoV[id]; } }
+}
+let legacyPhotos = null;   // shop that hasn't opened the updated staff app yet: read photos the old way
+onSnapshot(doc(db, ...P("photos", PHOTO_IDX)), d => {
+  const v = d.exists() ? d.data().v : null;
+  if (v && typeof v === "object") { if (legacyPhotos) { legacyPhotos(); legacyPhotos = null; } S.photoIndex = v; syncPhotos(); }
+  else if (!legacyPhotos) legacyPhotos = onSnapshot(collection(db, ...P("photos")), s => { S.photos = {}; s.forEach(x => { const img = safeImg(x.data().data); if (img) S.photos[safeId(x.id)] = img; }); render(); }, () => {});
+}, () => {});
 
 let unsubOrder = null;
 function watchOrder(id) {
   if (unsubOrder) unsubOrder(); S.orderId = id; S.order = null;
-  unsubOrder = onSnapshot(doc(db, ...P("orders", id)), d => { S.order = d.exists() ? cleanOrder(d.data()) : false; render(); }, () => { S.order = false; render(); });
+  unsubOrder = onSnapshot(doc(db, ...P("orders", id)), d => { S.order = d.exists() ? cleanOrder(d.data()) : false; syncPhotos(); render(); }, () => { S.order = false; render(); });
 }
 const q = new URLSearchParams(location.search).get("o"); if (q) watchOrder(q);
 
@@ -193,7 +217,7 @@ async function place(btn) {
 /* ---------- order status ---------- */
 function renderOrder() {
   $("#bar").hidden = true;
-  const o = S.order, s = S.settings || {};
+  const o = S.order, s = S.settings || {}, qr = S.photos[QR_ID] || s.qr;
   if (o === null) { view.innerHTML = '<div class="empty">Loading your order…</div>'; return; }
   if (o === false) { view.innerHTML = `<div class="empty">Order not found. <a href="./order.html">Back to menu</a></div>`; return; }
   const [t, sub] = STATUS[o.status] || [o.status, ""], step = STEPS.indexOf(o.status);
@@ -208,7 +232,7 @@ function renderOrder() {
         ${o.status === "awaiting_payment" ? `
           <div class="pay">
             <div class="amt">Pay exactly <b>${peso(o.total)}</b></div>
-            ${s.qr ? `<img src="${s.qr}" alt="GCash QR code" class="qr"><a class="ghost" href="${s.qr}" download="miau-gcash-qr.png">Save QR image</a>
+            ${qr ? `<img src="${qr}" alt="GCash QR code" class="qr"><a class="ghost" href="${qr}" download="miau-gcash-qr.png">Save QR image</a>
               <p class="hint">On this phone? Save the QR, then upload it in your GCash app's QR scanner.</p>` : ""}
             ${s.gcashNumber ? `<div class="gnum">GCash <b>${esc(s.gcashNumber)}</b>${s.gcashName ? ` · ${esc(s.gcashName)}` : ""} <button class="ghost sm" id="copy-num">Copy</button></div>` : ""}
             <label class="f"><span>GCash reference number</span><input id="ref" inputmode="numeric" autocomplete="off" maxlength="30" placeholder="From your GCash receipt"></label>

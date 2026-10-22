@@ -4,7 +4,8 @@ import {
   initializeApp, getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult,
   onAuthStateChanged, signOut, setPersistence, browserLocalPersistence,
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
-  collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, writeBatch, getDocs
+  collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, writeBatch, getDocs,
+  getDoc, getDocFromCache, query, where, orderBy, limit
 } from "./firebase.js";
 import { firebaseConfig, SHOP_ID, SHOP_NAME } from "./config.js";
 
@@ -28,11 +29,23 @@ try {
 
 /* ---------- storage adapter (same shape the app already uses) ---------- */
 const mapErr = e => { const c = e && e.code; throw { code: c === "permission-denied" ? "invalid_argument" : c === "resource-exhausted" ? "quota_exceeded" : "unavailable", message: e && e.message }; };
+const QC = { where, orderBy, limit };
+const snapOut = s => ({ metadata: { hasPendingWrites: s.metadata.hasPendingWrites, fromCache: s.metadata.fromCache },
+  docs: s.docs.map(d => ({ id: d.id, exists: true, data: () => d.data() })) });
 function makeDb() {
   return {
     collection(name) {
       const ref = collection(db, "shops", SHOP_ID, name);
       return {
+        // constraints: [["where", field, op, value], ["orderBy", field, "desc"], ["limit", n]]
+        query(cons) {
+          const q = query(ref, ...cons.map(([k, ...a]) => QC[k](...a)));
+          return {
+            onSnapshot: (next, err) => onSnapshot(q, s => next(snapOut(s)), e => { if (e.code === "permission-denied") noAccess(); err && err(e); }),
+            get: () => getDocs(q).then(snapOut).catch(mapErr)
+          };
+        },
+        getAll: () => getDocs(ref).then(snapOut).catch(mapErr),
         onSnapshot(next, err) {
           return onSnapshot(ref, { includeMetadataChanges: true },
             s => next({ metadata: { hasPendingWrites: s.metadata.hasPendingWrites, fromCache: s.metadata.fromCache },
@@ -41,8 +54,13 @@ function makeDb() {
         },
         doc(id) {
           const r = doc(ref, id);
-          return { set: b => setDoc(r, b).catch(mapErr), update: b => updateDoc(r, b).catch(mapErr), delete: () => deleteDoc(r).catch(mapErr),
-            onSnapshot: (next, err) => onSnapshot(r, d => next({ id: d.id, exists: d.exists(), data: () => d.data() }), e => err && err(e)) };
+          return { set: (b, o) => (o ? setDoc(r, b, o) : setDoc(r, b)).catch(mapErr), update: b => updateDoc(r, b).catch(mapErr), delete: () => deleteDoc(r).catch(mapErr),
+            onSnapshot: (next, err) => onSnapshot(r, d => next({ id: d.id, exists: d.exists(), data: () => d.data() }), e => err && err(e)),
+            // Saved copy if it matches version v (photo updatedAt), otherwise one download.
+            async getVersion(v) {
+              try { const c = await getDocFromCache(r); if (c.exists() && c.data().updatedAt === v) return c.data(); } catch {}
+              const d = await getDoc(r); return d.exists() ? d.data() : null;
+            } };
         }
       };
     }

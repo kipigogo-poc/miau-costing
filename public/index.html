@@ -1048,7 +1048,7 @@ function deskCells(l,r,i,f){
 
 
 /* ================= Online ordering: staff side (only when the host supports it) ================= */
-const ORD = { on: !!window.__ordering, orders: {}, menu: {}, photos: {}, settings: null, filter: "active", sound: false, lastActive: 0 };
+const ORD = { on: !!window.__ordering, orders: {}, older: {}, more: true, menu: {}, photos: {}, photoIndex: null, settings: null, filter: "active", sound: false, lastActive: 0 };
 const ST = {
   awaiting_payment: { t: "Awaiting payment", k: "neutral" }, payment_submitted: { t: "Check payment", k: "warn" },
   paid: { t: "Paid", k: "ok" }, preparing: { t: "Preparing", k: "ok" }, ready: { t: "Ready", k: "ok" },
@@ -1090,14 +1090,32 @@ async function publish() {
 }
 
 /* ---------- photos: shrink in the browser before saving ---------- */
+const PHOTO_IDX = "_index", QR_ID = "gcash-qr", PHOTO_SIDE = 560, PHOTO_MAX = 120000;   // ~90 KB image
+// Menu photo: 560 px, WebP where the browser can make it (JPEG otherwise), stepped down until under ~90 KB.
+async function photoData(src) {
+  let q = 0.78, side = PHOTO_SIDE, data;
+  for (let i = 0; i < 6; i++) {
+    data = await shrinkImage(src, side, "image/webp", q);
+    if (!data.startsWith("data:image/webp")) data = await shrinkImage(src, side, "image/jpeg", q);
+    if (data.length <= PHOTO_MAX) break; q -= 0.1; if (i >= 2) side -= 80;
+  }
+  return data;
+}
+// Saves a photo (or removes it with data = null) and bumps its version in the index.
+async function savePhoto(id, data) {
+  const col = S.db.collection("photos"), v = Date.now();
+  if (data) { await col.doc(id).set({ data, updatedAt: v }); ORD.photos[id] = { data, updatedAt: v }; }
+  else { await col.doc(id).delete(); delete ORD.photos[id]; }
+  await col.doc(PHOTO_IDX).set({ v: { [id]: data ? v : null } }, { merge: true });
+}
 function shrinkImage(file, maxSide, type, quality) {
   return new Promise((res, rej) => {
-    const img = new Image(), url = URL.createObjectURL(file);
+    const img = new Image(), url = typeof file === "string" ? file : URL.createObjectURL(file);
     img.onload = () => {
       const s = Math.min(1, maxSide / Math.max(img.width, img.height)), w = Math.round(img.width * s), h = Math.round(img.height * s);
       const c = Object.assign(document.createElement("canvas"), { width: w, height: h }), g = c.getContext("2d");
       if (type === "image/jpeg") { g.fillStyle = "#fff"; g.fillRect(0, 0, w, h); }
-      g.drawImage(img, 0, 0, w, h); URL.revokeObjectURL(url); res(c.toDataURL(type, quality));
+      g.drawImage(img, 0, 0, w, h); if (typeof file !== "string") URL.revokeObjectURL(url); res(c.toDataURL(type, quality));
     };
     img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("not an image")); };
     img.src = url;
@@ -1141,12 +1159,13 @@ function renderOrders() {
       <div class="oc-f">${["done", "cancelled"].includes(o.status) ? "" : `<button class="btn ghost danger sm" data-ocancel="${id}" id="oc-${id}">Cancel</button>`}
         ${nx ? `<button class="btn primary" data-onext="${id}" data-to="${nx[0]}">${nx[1]}</button>` : ""}</div>
     </div>`;
-  }).join("") || `<div class="card empty">${ORD.filter === "active" ? (open ? "No active orders." : "No active orders. Your shop is closed for online orders.") : "Nothing here yet."}</div>`}</div>`;
+  }).join("") || `<div class="card empty">${ORD.filter === "active" ? (open ? "No active orders." : "No active orders. Your shop is closed for online orders.") : "Nothing in the last 2 days."}</div>`}</div>
+  ${ORD.filter !== "active" && ORD.more && ORD.loadOlder ? `<div style="text-align:center;margin-top:16px"><button class="btn" id="o-older">Load older orders</button></div>` : ""}`;
 }
 
 /* ---------- Online menu page ---------- */
 function renderOnline() {
-  const s = ORD.settings || {}, p = publishPlan(), pending = p.sets.length + p.dels.length;
+  const s = ORD.settings || {}, p = publishPlan(), pending = p.sets.length + p.dels.length, qrImg = safeImg((ORD.photos[QR_ID] || {}).data) || safeImg(s.qr);
   const groups = {}; drinks().forEach(([id, d]) => { (groups[d.name || "Untitled"] = groups[d.name || "Untitled"] || []).push([id, d]); });
   const base = location.href.replace(/[^/]*$/, "");
   view.innerHTML = `
@@ -1162,9 +1181,9 @@ function renderOnline() {
         </div>
         <label class="fld"><span>Notice (optional)</span><input class="in" id="s-notice" data-s="notice" value="${esc(s.notice || "")}" placeholder="e.g. Pickup only · Open 8am–8pm"></label>
         <div class="fld"><span>GCash QR</span>
-          <div style="display:flex;gap:12px;align-items:center">${safeImg(s.qr) ? `<img src="${safeImg(s.qr)}" alt="GCash QR" class="qrthumb">` : `<div class="qrthumb empty">No QR</div>`}
-            <div style="display:flex;flex-direction:column;gap:6px"><label class="btn sm" for="s-qrfile" style="cursor:pointer">${s.qr ? "Replace" : "Upload"} QR</label>
-            <input type="file" id="s-qrfile" accept="image/*" hidden>${s.qr ? `<button class="btn ghost sm" id="s-qrdel">Remove</button>` : ""}</div></div></div>
+          <div style="display:flex;gap:12px;align-items:center">${qrImg ? `<img src="${qrImg}" alt="GCash QR" class="qrthumb">` : `<div class="qrthumb empty">No QR</div>`}
+            <div style="display:flex;flex-direction:column;gap:6px"><label class="btn sm" for="s-qrfile" style="cursor:pointer">${qrImg ? "Replace" : "Upload"} QR</label>
+            <input type="file" id="s-qrfile" accept="image/*" hidden>${qrImg ? `<button class="btn ghost sm" id="s-qrdel">Remove</button>` : ""}</div></div></div>
         <div class="fld"><span>Customer link</span><div class="result" style="font-size:13px;word-break:break-all" id="s-link">${esc(base)}order.html</div>
           <button class="btn sm" id="s-copy" style="align-self:flex-start">Copy link</button></div>
       </div></div>
@@ -1200,7 +1219,7 @@ if (ORD.on) {
   const _render = render;
   render = function () {
     if (S.view === "orders" || S.view === "online") { renderNav(); if (!S.loaded.items || !S.loaded.drinks) { view.innerHTML = '<div class="empty">Loading…</div>'; return; }
-      S.view === "orders" ? renderOrders() : renderOnline(); applyArmed(); return; }
+      S.view === "orders" ? renderOrders() : renderOnline(); applyArmed(); if (ORD.syncPhotos) ORD.syncPhotos(); return; }
     _render();
   };
   // keep the public menu in step when a drink sold online changes
@@ -1215,16 +1234,59 @@ if (ORD.on) {
   (async () => {
     const db = await window.claude.use("db"); if (!db) return;
     let first = true;
-    db.collection("orders").onSnapshot(s => {
-      ORD.orders = {}; s.docs.forEach(d => { ORD.orders[d.id] = d.data(); });
+    // Orders: only the last 2 days plus anything still active are kept live, so reads stay flat as history grows.
+    // Older orders load on demand ("Load older orders").
+    const live = { recent: {}, active: {} }, since = new Date(Date.now() - 2 * 864e5);
+    const ordersCol = db.collection("orders");
+    const onOrders = part => s => { live[part] = {}; s.docs.forEach(d => { live[part][d.id] = d.data(); });
+      const keep = {}; for (const [id, o] of Object.entries(ORD.orders)) if (ORD.older[id]) keep[id] = o;
+      ORD.orders = Object.assign(keep, live.recent, live.active);
       const newOnes = Object.values(ORD.orders).filter(o => o.status === "awaiting_payment" || o.status === "payment_submitted").length;
       if (!first && newOnes > ORD.lastActive && ORD.sound) beep();
       ORD.lastActive = newOnes; first = false;
       if (S.view === "orders" && !editing()) renderOrders(); renderNav();
-    });
+    };
+    ordersCol.query([["where", "createdAt", ">=", since]]).onSnapshot(onOrders("recent"));
+    ordersCol.query([["where", "status", "in", ACTIVE]]).onSnapshot(onOrders("active"));
+    ORD.loadOlder = async () => {
+      const oldest = Math.min(since.getTime(), ...Object.values(ORD.orders).map(o => tsMs(o.createdAt)).filter(Boolean));
+      const s = await ordersCol.query([["where", "createdAt", "<", new Date(oldest)], ["orderBy", "createdAt", "desc"], ["limit", 50]]).get();
+      s.docs.forEach(d => { ORD.older[d.id] = true; ORD.orders[d.id] = d.data(); });
+      ORD.more = s.docs.length === 50; renderOrders();
+    };
     db.collection("menu").onSnapshot(s => { ORD.menu = {}; s.docs.forEach(d => { ORD.menu[d.id] = d.data(); }); if (S.view === "online" && !editing()) renderOnline(); if (S.view === "orders" && !editing()) renderOrders(); });
-    db.collection("photos").onSnapshot(s => { ORD.photos = {}; s.docs.forEach(d => { ORD.photos[d.id] = d.data(); }); if (S.view === "online" && !editing()) renderOnline(); });
-    db.collection("settings").doc("public").onSnapshot(d => { ORD.settings = d.exists ? d.data() : { open: false }; if ((S.view === "online" || S.view === "orders") && !editing()) render(); });
+    // Photos: a small index (photos/_index) holds each photo's version; images download only when new or changed.
+    const photosCol = db.collection("photos");
+    photosCol.doc(PHOTO_IDX).onSnapshot(d => { ORD.photoIndex = d.exists ? (d.data().v || {}) : null; ORD.photoIndexLoaded = true; maintainPhotos(); syncStaffPhotos(); });
+    ORD.syncPhotos = syncStaffPhotos;
+    async function syncStaffPhotos() {
+      if (!ORD.photoIndex || (S.view !== "online" && S.view !== "orders")) return;
+      for (const [id, v] of Object.entries(ORD.photoIndex)) {
+        if (typeof v !== "number") { if (ORD.photos[id]) { delete ORD.photos[id]; if (S.view === "online" && !editing()) renderOnline(); } continue; }
+        if (ORD.photos[id] && ORD.photos[id].updatedAt === v) continue;
+        try { const data = await photosCol.doc(id).getVersion(v); if (data) { ORD.photos[id] = data; if (S.view === "online" && !editing()) renderOnline(); } } catch {}
+      }
+    }
+    // One-time upkeep: build the index for photos saved before it existed, shrink oversized photos, and move the GCash QR out of settings.
+    let maintained = false;
+    async function maintainPhotos() {
+      if (maintained || !ORD.photoIndexLoaded || !ORD.settings) return; maintained = true;
+      try {
+        const idx = Object.assign({}, ORD.photoIndex || {}); let changed = !ORD.photoIndex;
+        if (!ORD.photoIndex) {
+          const all = await photosCol.getAll();
+          for (const d of all.docs) { if (d.id === PHOTO_IDX) continue; let p = d.data();
+            if (typeof p.data === "string" && p.data.length > PHOTO_MAX) { try { p = { data: await photoData(p.data), updatedAt: Date.now() }; await photosCol.doc(d.id).set(p); } catch {} }
+            if (typeof p.data === "string") { idx[d.id] = p.updatedAt || Date.now(); ORD.photos[d.id] = p; } }
+        }
+        if (ORD.settings.qr) {
+          const p = { data: ORD.settings.qr, updatedAt: Date.now() }; await photosCol.doc(QR_ID).set(p); idx[QR_ID] = p.updatedAt; ORD.photos[QR_ID] = p; changed = true;
+          const st = Object.assign({}, ORD.settings); delete st.qr; ORD.settings = st; await db.collection("settings").doc("public").set(JSON.parse(JSON.stringify(st)));
+        }
+        if (changed) await photosCol.doc(PHOTO_IDX).set({ v: idx });
+      } catch { maintained = false; }
+    }
+    db.collection("settings").doc("public").onSnapshot(d => { ORD.settings = d.exists ? d.data() : { open: false }; maintainPhotos(); if ((S.view === "online" || S.view === "orders") && !editing()) render(); });
   })();
 
   const saveSettings = patch => { ORD.settings = Object.assign({}, ORD.settings || {}, patch); clearTimeout(saveSettings.t); saveSettings.t = setTimeout(() => S.db.collection("settings").doc("public").set(JSON.parse(JSON.stringify(ORD.settings))).catch(() => toastErr("Not saved")), 400); };
@@ -1232,12 +1294,13 @@ if (ORD.on) {
   document.addEventListener("click", async e => {
     const t = e.target.closest("button"); if (!t) return;
     if (t.dataset.of) { ORD.filter = t.dataset.of; renderOrders(); return; }
+    if (t.id === "o-older") { t.disabled = true; t.textContent = "Loading…"; try { await ORD.loadOlder(); } catch { toastErr("Couldn't load older orders"); t.disabled = false; } return; }
     if (t.id === "o-sound") { ORD.sound = !ORD.sound; if (ORD.sound) beep(); renderOrders(); return; }
     if (t.dataset.onext) { const id = t.dataset.onext; t.disabled = true;
       try { await S.db.collection("orders").doc(id).update({ status: t.dataset.to, updatedAt: Date.now() }); } catch { toastErr("Not saved"); t.disabled = false; } return; }
     if (t.dataset.ocancel) { const id = t.dataset.ocancel; arm("oc:" + id, "#oc-" + id, async () => { try { await S.db.collection("orders").doc(id).update({ status: "cancelled", updatedAt: Date.now() }); } catch { toastErr("Not saved"); } }); return; }
     if (t.id === "o-publish") { t.disabled = true; t.textContent = "Publishing…"; try { await publish(); } catch { toastErr("Publish failed"); } renderOnline(); return; }
-    if (t.id === "s-qrdel") { saveSettings({ qr: null }); renderOnline(); return; }
+    if (t.id === "s-qrdel") { try { await savePhoto(QR_ID, null); } catch { toastErr("Not saved"); } renderOnline(); return; }
     if (t.id === "s-copy") { const txt = $("#s-link").textContent; try { await navigator.clipboard.writeText(txt); t.textContent = "Copied"; } catch { const r = document.createRange(); r.selectNodeContents($("#s-link")); getSelection().removeAllRanges(); getSelection().addRange(r); } return; }
   });
   document.addEventListener("input", e => { const el = e.target; if (el.dataset.s) saveSettings({ [el.dataset.s]: el.value }); });
@@ -1246,11 +1309,9 @@ if (ORD.on) {
     if (el.id === "s-open") { saveSettings({ open: el.checked }); renderOnline(); return; }
     if (el.dataset.sell) { const d = S.drinks[el.dataset.sell]; d.sellOnline = el.checked; save("drinks", el.dataset.sell, true); renderOnline(); return; }
     if (el.dataset.sold) { const d = S.drinks[el.dataset.sold]; d.soldOut = el.checked; save("drinks", el.dataset.sold, true); renderOnline(); return; }
-    if (el.id === "s-qrfile" && el.files[0]) { try { saveSettings({ qr: await shrinkImage(el.files[0], 800, "image/png") }); renderOnline(); } catch { toastErr("That file isn't an image"); } return; }
+    if (el.id === "s-qrfile" && el.files[0]) { try { await savePhoto(QR_ID, await shrinkImage(el.files[0], 640, "image/png")); renderOnline(); } catch { toastErr("That file isn't an image"); } return; }
     if (el.dataset.photo && el.files[0]) {
-      try { let q = 0.72, data = await shrinkImage(el.files[0], 720, "image/jpeg", q);
-        while (data.length > 700000 && q > 0.35) { q -= 0.12; data = await shrinkImage(el.files[0], 640, "image/jpeg", q); }
-        await S.db.collection("photos").doc(el.dataset.photo).set({ data, updatedAt: Date.now() }); }
+      try { await savePhoto(el.dataset.photo, await photoData(el.files[0])); renderOnline(); }
       catch { toastErr("Photo not saved"); } return; }
   });
 }
