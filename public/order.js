@@ -1,6 +1,6 @@
 // MIAU customer ordering page. No login. Reads the public menu, creates an order, shows the GCash QR, accepts a reference number.
 import { initializeApp, initializeFirestore, persistentLocalCache, doc, setDoc, updateDoc, onSnapshot, collection, serverTimestamp, getDoc, getDocFromCache } from "./firebase-public.js";
-import { firebaseConfig, SHOP_ID, INSTAGRAM_URL } from "./config.js";
+import { firebaseConfig, SHOP_ID, INSTAGRAM } from "./config.js";
 
 const $ = s => document.querySelector(s);
 // ---- Untrusted data guards: everything from the database is cleaned before it reaches the page ----
@@ -118,10 +118,11 @@ const crewHTML = () => `<div class="grid">${CREW.map((c, i) => `
   </article>`).join("")}</div>
   <p class="crewnote">*Mascot calories. Highly scientific. Adoption is free, the purrs are priceless. Real drinks are brewing, check back soon!</p>`;
 // Free "adoption": a cute confirmation, then off to our Instagram post. No order is created.
-const IG = /^https:\/\/(www\.)?instagram\.com\/[A-Za-z0-9_./?=&%-]+$/.test(INSTAGRAM_URL) ? INSTAGRAM_URL : "";
+const igOk = u => typeof u === "string" && /^https:\/\/(www\.)?instagram\.com\/[A-Za-z0-9_./?=&%-]+$/.test(u);
+const igFor = cat => igOk((INSTAGRAM || {})[cat]) ? INSTAGRAM[cat] : igOk((INSTAGRAM || {}).default) ? INSTAGRAM.default : "";
 let adoptTimer = null;
 function adopt(catId) {
-  const c = CREW.find(x => x.cat === catId); if (!c) return;
+  const c = CREW.find(x => x.cat === catId); if (!c) return; const IG = igFor(c.cat);
   closeAdopt();
   const d = document.createElement("div"); d.className = "adopt"; d.id = "adopt"; d.setAttribute("role", "dialog"); d.setAttribute("aria-modal", "true"); d.setAttribute("aria-label", `${c.name} adopted`);
   d.innerHTML = `<div class="adopt-card">
