@@ -1,7 +1,7 @@
 // Google sign-in gate + Firestore storage adapter for the costing app.
 // The app talks to window.claude.use("db"); this file supplies that, backed by Firestore.
 import {
-  initializeApp, getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult,
+  initializeApp, getAuth, GoogleAuthProvider, signInWithPopup, reauthenticateWithPopup, signInWithRedirect, getRedirectResult,
   onAuthStateChanged, signOut, setPersistence, browserLocalPersistence,
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
   collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, writeBatch, getDocs,
@@ -80,6 +80,19 @@ gateBtn.addEventListener("click", async () => {
 });
 getRedirectResult(auth).catch(() => { gateMsg.textContent = "Sign-in failed. Try again."; });
 
+// Google Sheets permission (asked only when someone uses Sheets sync). Token lives in memory for ~55 minutes.
+let sheetsTok = null;
+window.miauSheetsToken = async (force) => {
+  if (!force && sheetsTok && sheetsTok.exp > Date.now()) return sheetsTok.t;
+  const u = auth.currentUser; if (!u) throw new Error("Sign in first.");
+  const p = new GoogleAuthProvider(); p.addScope("https://www.googleapis.com/auth/spreadsheets");
+  p.setCustomParameters({ login_hint: u.email || "" });
+  const r = await reauthenticateWithPopup(u, p), c = GoogleAuthProvider.credentialFromResult(r);
+  if (!c || !c.accessToken) throw new Error("Google didn't give permission to use Sheets.");
+  sheetsTok = { t: c.accessToken, exp: Date.now() + 55 * 60 * 1000 }; return sheetsTok.t;
+};
+window.miauUserEmail = () => (auth.currentUser && auth.currentUser.email) || "";
+
 let denied = false;
 function noAccess() {
   if (denied) return; denied = true;
@@ -125,6 +138,7 @@ function openSheet() {
         </div>
         <div class="faint" id="acct-msg" style="font-size:12px;min-height:16px"></div>
       </div>
+      <div class="fld"><span>Google Sheets</span><div><button class="btn" id="acct-sheets">Ingredients &amp; menu in Google Sheets</button></div></div>
       ${window.miauStandalone ? "" : `<div class="fld"><span>App</span>
         <div><button class="btn primary" id="acct-install">Install MIAU Staff app</button></div>
         <div class="faint" id="acct-install-msg" style="font-size:13px;line-height:1.5"></div></div>`}
@@ -140,6 +154,7 @@ document.addEventListener("click", e => {
   else if (t.id === "acct-signout") signOut(auth);
   else if (t.id === "acct-export") exportBackup();
   else if (t.id === "acct-import-go") importNow();
+  else if (t.id === "acct-sheets") { closeSheet(); if (typeof go === "function") go("sheets"); }
   else if (t.id === "acct-install" && window.miauInstall) window.miauInstall().then(r => {
     const m = $("#acct-install-msg"); if (!m) return;
     if (r === "installed") { m.textContent = "Installed. Open MIAU Staff from your home screen or apps."; t.hidden = true; }

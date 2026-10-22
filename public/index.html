@@ -292,6 +292,23 @@ details.nut[open]>summary{border-bottom:1px solid var(--border)}
 :root[data-theme="dark"] .wm-light{display:none!important} :root[data-theme="dark"] .wm-dark{display:block!important}
 @media (max-width:900px){.mbrand{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.mbrand img{height:28px;width:auto}.mbrand small{font:800 11px var(--f);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}}
 
+/* Google Sheets sync */
+.sx{display:flex;flex-direction:column;gap:14px}
+.sx p{margin:0;line-height:1.55}
+.sx-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.sx-msg{padding:12px 16px;margin-bottom:14px;font-weight:600}
+.sx-msg.ok{background:var(--ok-bg);color:var(--ok);border-color:transparent}
+.sx-msg.bad,.sx-err{background:var(--bad-bg);color:var(--bad);border-color:transparent}
+.sx-err{padding:12px 16px;margin-bottom:14px;font-size:14px}
+.sx-err ul{margin:6px 0 0;padding-left:18px}
+.sx-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;font-size:14px}
+.sx-list li{display:flex;flex-direction:column;gap:6px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.sx-list li:last-child{border-bottom:0;padding-bottom:0}
+.sx-adv summary{cursor:pointer;color:var(--muted);font-weight:700}
+.sx-adv[open]{display:flex;flex-direction:column;gap:10px}
+#view[data-page="sheets"]>*+*{margin-top:14px}
+#view[data-page="sheets"] .ph{margin-bottom:0}
+
 /* phone */
 @media (max-width:900px){
   .side{display:none}
@@ -457,7 +474,7 @@ const IC={
 };
 const CAT_LABEL={"Ingredient":"Ingredient","Packaging":"Packaging","House-made":"In-house"};
 
-const START_VIEW=(()=>{try{const u=new URL(location.href),v=u.searchParams.get("view");if(u.searchParams.has("view")||u.searchParams.has("source")){u.searchParams.delete("view");u.searchParams.delete("source");history.replaceState(null,"",u.pathname+(u.search||"")+u.hash);}return ["menu","items","preps","orders","online"].includes(v)?v:"menu";}catch{return "menu";}})();
+const START_VIEW=(()=>{try{const u=new URL(location.href),v=u.searchParams.get("view");if(u.searchParams.has("view")||u.searchParams.has("source")){u.searchParams.delete("view");u.searchParams.delete("source");history.replaceState(null,"",u.pathname+(u.search||"")+u.hash);}return ["menu","items","preps","orders","online","sheets"].includes(v)?v:"menu";}catch{return "menu";}})();
 const S={items:{},drinks:{},view:START_VIEW,sel:null,drawer:null,q:"",mf:"all",iq:"",if:"all",db:null,loaded:{items:false,drinks:false},readonly:false};
 const view=$("#view");
 
@@ -517,12 +534,14 @@ function go(v,sel){S.view=v;S.sel=sel??null;render();window.scrollTo(0,0);}
 
 /* ---------- render root ---------- */
 function render(){
+  view.dataset.page=S.view;
   renderNav();
   if(!S.loaded.items||!S.loaded.drinks){view.innerHTML='<div class="empty">Loading…</div>';return;}
   if(S.view==="drink"&&S.drinks[S.sel]) renderDetail("drink");
   else if(S.view==="prep"&&isPrep(S.items[S.sel])) renderDetail("prep");
   else if(S.view==="items") renderItems();
   else if(S.view==="preps") renderPreps();
+  else if(S.view==="sheets"&&window.renderSheets) window.renderSheets();
   else {S.view="menu";renderMenu();}
   applyArmed();
 }
@@ -1320,6 +1339,7 @@ if (ORD.on) {
 
 </script>
 <script src="staff-pwa.js" defer></script>
+<script type="module" src="sheets.js"></script>
 <script type="module" src="auth.js"></script>
 </body>
 </html>

@@ -1,0 +1,1971 @@
+{
+ "items": {
+  "all-purpose-cream": {
+   "category": "Ingredient",
+   "code": "ING-008",
+   "density": null,
+   "name": "All purpose cream",
+   "packPrice": 250,
+   "packSize": 1000,
+   "unit": "ml",
+   "yield": 0.8
+  },
+  "brewed-coffee": {
+   "batchMult": 1,
+   "category": "House-made",
+   "code": "HM-004",
+   "density": null,
+   "lines": [
+    {
+     "itemId": "coffee-beans",
+     "note": "Sample note",
+     "qty": 2,
+     "unit": "g"
+    },
+    {
+     "itemId": "brewing-water",
+     "note": "Sample note",
+     "qty": 112,
+     "unit": "g"
+    }
+   ],
+   "name": "Brewed coffee",
+   "nutrManual": true,
+   "unit": "ml",
+   "yield": 0.8,
+   "yieldQty": 195
+  },
+  "brewing-water": {
+   "category": "Ingredient",
+   "code": "ING-026",
+   "density": null,
+   "name": "Brewing water",
+   "note": "Sample note",
+   "nutr": {
+    "carb": 0,
+    "fat": 0,
+    "kcal": 0,
+    "protein": 0,
+    "sat": 0,
+    "sodium": 0,
+    "sugar": 0
+   },
+   "packPrice": 40,
+   "packSize": 19000,
+   "unit": "ml",
+   "yield": 1
+  },
+  "caramel-sauce": {
+   "category": "Ingredient",
+   "code": "ING-019",
+   "density": null,
+   "name": "Caramel sauce",
+   "packPrice": 800,
+   "packSize": 1000,
+   "unit": "g",
+   "yield": 0.8
+  },
+  "caramel-syrup": {
+   "category": "Ingredient",
+   "code": "ING-020",
+   "density": null,
+   "name": "Caramel syrup",
+   "packPrice": 50,
+   "packSize": 1000,
+   "unit": "g",
+   "yield": 1
+  },
+  "chocolate-syrup": {
+   "category": "Ingredient",
+   "code": "ING-017",
+   "density": null,
+   "name": "Chocolate syrup",
+   "packPrice": 87,
+   "packSize": 1000,
+   "unit": "g",
+   "yield": 1
+  },
+  "coffee-beans": {
+   "category": "Ingredient",
+   "code": "ING-025",
+   "density": null,
+   "name": "Coffee beans",
+   "note": "Sample note",
+   "packPrice": 124,
+   "packSize": 1000,
+   "unit": "g",
+   "yield": 1
+  },
+  "cold-brew-coffee": {
+   "batchMult": 1,
+   "category": "House-made",
+   "code": "HM-005",
+   "density": null,
+   "lines": [
+    {
+     "itemId": "coffee-beans",
+     "note": "Sample note",
+     "qty": 27,
+     "unit": "g"
+    },
+    {
+     "itemId": "brewing-water",
+     "note": "Sample note",
+     "qty": 90,
+     "unit": "g"
+    }
+   ],
+   "name": "Cold brew coffee",
+   "nutrManual": true,
+   "unit": "g",
+   "yieldQty": 316
+  },
+  "condensed-milk": {
+   "category": "Ingredient",
+   "code": "ING-009",
+   "density": null,
+   "name": "Condensed milk",
+   "packPrice": 161,
+   "packSize": 1000,
+   "unit": "g",
+   "yield": 1
+  },
+  "distilled-water": {
+   "category": "Ingredient",
+   "code": "ING-023",
+   "density": null,
+   "name": "Distilled water",
+   "nutr": {
+    "carb": 0,
+    "fat": 0,
+    "kcal": 0,
+    "protein": 0,
+    "sat": 0,
+    "sodium": 0,
+    "sugar": 0
+   },
+   "packPrice": 198,
+   "packSize": 1000,
+   "unit": "g",
+   "yield": 1
+  },
+  "flavored-syrup-optional": {
+   "category": "Ingredient",
+   "code": "ING-024",
+   "density": null,
+   "name": "Flavored syrup (optional)",
+   "packPrice": 235,
+   "packSize": 1000,
+   "unit": "g",
+   "yield": 1
+  },
+  "hot-water": {
+   "category": "Ingredient",
+   "code": "ING-013",
+   "density": null,
+   "name": "Hot water",
+   "nutr": {
+    "carb": 0,
+    "fat": 0,
+    "kcal": 0,
+    "protein": 0,
+    "sat": 0,
+    "sodium": 0,
+    "sugar": 0
+   },
+   "packPrice": 272,
+   "packSize": 1000,
+   "unit": "ml",
+   "yield": 1
+  },
+  "ice": {
+   "category": "Ingredient",
+   "code": "ING-004",
+   "density": null,
+   "name": "Ice",
+   "nutr": {
+    "carb": 0,
+    "fat": 0,
+    "kcal": 0,
+    "protein": 0,
+    "sat": 0,
+    "sodium": 0,
+    "sugar": 0
+   },
+   "packPrice": 309,
+   "packSize": 1000,
+   "unit": "g",
+   "yield": 1
+  },
+  "matcha": {
+   "category": "Ingredient",
+   "code": "ING-001",
+   "density": null,
+   "name": "Matcha powder (CG)",
+   "packPrice": 346,
+   "packSize": 1000,
+   "unit": "g",
+   "yield": 1
+  },
+  "milk-crumbles": {
+   "batchMult": 1,
+   "category": "House-made",
+   "code": "HM-003",
+   "density": null,
+   "lines": [
+    {
+     "itemId": "milk-powder-bear-brand-swak",
+     "qty": 42,
+     "unit": "g"
+    },
+    {
+     "itemId": "condensed-milk",
+     "qty": 92,
+     "unit": "g"
+    },
+    {
+     "itemId": "toasted-milk-powder",
+     "note": "Sample note",
+     "qty": null,
+     "unit": "g"
+    }
+   ],
+   "name": "Milk crumbles",
+   "unit": "g",
+   "yieldQty": 428
+  },
+  "milk-powder-bear-brand-swak": {
+   "category": "Ingredient",
+   "code": "ING-011",
+   "density": null,
+   "name": "Milk powder (Bear Brand Swak)",
+   "packPrice": 383,
+   "packSize": 1000,
+   "unit": "g",
+   "yield": 1
+  },
+  "milk-syrup": {
+   "category": "Ingredient",
+   "code": "ING-007",
+   "density": null,
+   "name": "Milk syrup (creamy sweetener)",
+   "packPrice": 420,
+   "packSize": 1000,
+   "unit": "ml",
+   "yield": 1
+  },
+  "milk": {
+   "category": "Ingredient",
+   "code": "ING-002",
+   "density": 1.03,
+   "name": "Fresh or full cream milk",
+   "packPrice": 57,
+   "packSize": 1000,
+   "unit": "ml",
+   "yield": 1,
+   "nutr": {
+    "kcal": 61,
+    "fat": 3.3,
+    "sat": 1.9,
+    "carb": 4.8,
+    "sugar": 5,
+    "protein": 3.2,
+    "sodium": 43
+   }
+  },
+  "milo-powder": {
+   "category": "Ingredient",
+   "code": "ING-012",
+   "density": null,
+   "name": "Milo powder",
+   "packPrice": 94,
+   "packSize": 1000,
+   "unit": "g",
+   "yield": 1
+  },
+  "oreo": {
+   "category": "Ingredient",
+   "code": "ING-006",
+   "density": null,
+   "name": "Oreo cookies",
+   "packPrice": 131,
+   "packSize": 1000,
+   "unit": "g",
+   "yield": 1
+  },
+  "salt": {
+   "category": "Ingredient",
+   "code": "ING-014",
+   "density": null,
+   "name": "Salt",
+   "packPrice": 168,
+   "packSize": 1000,
+   "unit": "g",
+   "yield": 1
+  },
+  "sea-salt-cream": {
+   "batchMult": 1,
+   "category": "House-made",
+   "code": "HM-001",
+   "density": null,
+   "lines": [
+    {
+     "itemId": "all-purpose-cream",
+     "qty": 67,
+     "unit": "ml"
+    },
+    {
+     "itemId": "milk",
+     "qty": 84,
+     "unit": "ml"
+    },
+    {
+     "itemId": "condensed-milk",
+     "qty": 78,
+     "unit": "g"
+    },
+    {
+     "itemId": "sea-salt",
+     "qty": 100,
+     "unit": "g"
+    }
+   ],
+   "name": "Sea salt cream",
+   "unit": "ml",
+   "yieldQty": 171
+  },
+  "sea-salt": {
+   "category": "Ingredient",
+   "code": "ING-010",
+   "density": null,
+   "name": "Sea salt",
+   "packPrice": 205,
+   "packSize": 1000,
+   "unit": "g",
+   "yield": 1
+  },
+  "strawberry-jam": {
+   "category": "Ingredient",
+   "code": "ING-021",
+   "density": null,
+   "name": "Strawberry jam",
+   "packPrice": 242,
+   "packSize": 1000,
+   "unit": "g",
+   "yield": 1
+  },
+  "strawberry-milk": {
+   "category": "Ingredient",
+   "code": "ING-022",
+   "density": null,
+   "name": "Strawberry milk",
+   "packPrice": 279,
+   "packSize": 1000,
+   "unit": "g",
+   "yield": 1
+  },
+  "sugar-syrup": {
+   "category": "Ingredient",
+   "code": "ING-003",
+   "density": null,
+   "name": "Sugar syrup",
+   "note": "Sample note",
+   "packPrice": 316,
+   "packSize": 1000,
+   "unit": "ml",
+   "yield": 1
+  },
+  "toasted-milk-powder": {
+   "batchMult": 1,
+   "category": "House-made",
+   "code": "HM-002",
+   "density": null,
+   "lines": [
+    {
+     "itemId": "milk-powder-bear-brand-swak",
+     "note": "Sample note",
+     "qty": 47,
+     "unit": "g"
+    }
+   ],
+   "name": "Toasted milk powder",
+   "unit": "g",
+   "yieldQty": 404
+  },
+  "vanilla-syrup": {
+   "category": "Ingredient",
+   "code": "ING-016",
+   "density": null,
+   "name": "Vanilla syrup",
+   "packPrice": 353,
+   "packSize": 1000,
+   "unit": "g",
+   "yield": 1
+  },
+  "white-chocolate-sauce": {
+   "category": "Ingredient",
+   "code": "ING-018",
+   "density": null,
+   "name": "White chocolate sauce",
+   "packPrice": 390,
+   "packSize": 1000,
+   "unit": "g",
+   "yield": 1
+  }
+ },
+ "drinks": {
+  "caramel-macchiato-12": {
+   "baseVol": 355,
+   "lines": [
+    {
+     "itemId": "caramel-syrup",
+     "qty": 86,
+     "unit": "g"
+    },
+    {
+     "itemId": "caramel-syrup",
+     "qty": 8,
+     "unit": "g"
+    },
+    {
+     "itemId": "milk-syrup",
+     "note": "Sample note",
+     "qty": 84,
+     "unit": "g"
+    },
+    {
+     "itemId": "milk",
+     "note": "Sample note",
+     "qty": 58,
+     "unit": "g"
+    },
+    {
+     "fixed": true,
+     "itemId": "caramel-sauce",
+     "note": "Sample note",
+     "qty": 113,
+     "unit": "g"
+    },
+    {
+     "itemId": "cold-brew-coffee",
+     "qty": 99,
+     "unit": "g"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 17,
+     "unit": "g"
+    }
+   ],
+   "name": "Caramel Macchiato",
+   "price": 140,
+   "target": 0.3,
+   "targetVol": 355,
+   "vat": 0.12
+  },
+  "caramel-macchiato-16": {
+   "baseVol": 473,
+   "lines": [
+    {
+     "itemId": "caramel-sauce",
+     "qty": 64,
+     "unit": "g"
+    },
+    {
+     "itemId": "caramel-syrup",
+     "qty": 113,
+     "unit": "g"
+    },
+    {
+     "itemId": "milk-syrup",
+     "note": "Sample note",
+     "qty": 85,
+     "unit": "g"
+    },
+    {
+     "itemId": "milk",
+     "note": "Sample note",
+     "qty": 79,
+     "unit": "g"
+    },
+    {
+     "fixed": true,
+     "itemId": "caramel-sauce",
+     "note": "Sample note",
+     "qty": 71,
+     "unit": "g"
+    },
+    {
+     "itemId": "cold-brew-coffee",
+     "qty": 111,
+     "unit": "g"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 111,
+     "unit": "g"
+    }
+   ],
+   "name": "Caramel Macchiato",
+   "price": 160,
+   "target": 0.3,
+   "targetVol": 473,
+   "vat": 0.12
+  },
+  "caramel-macchiato-22": {
+   "baseVol": 651,
+   "lines": [
+    {
+     "itemId": "caramel-sauce",
+     "qty": 47,
+     "unit": "g"
+    },
+    {
+     "itemId": "caramel-syrup",
+     "qty": 42,
+     "unit": "g"
+    },
+    {
+     "itemId": "milk-syrup",
+     "note": "Sample note",
+     "qty": 102,
+     "unit": "g"
+    },
+    {
+     "itemId": "milk",
+     "note": "Sample note",
+     "qty": 42,
+     "unit": "g"
+    },
+    {
+     "fixed": true,
+     "itemId": "caramel-sauce",
+     "note": "Sample note",
+     "qty": 20,
+     "unit": "g"
+    },
+    {
+     "itemId": "cold-brew-coffee",
+     "qty": 38,
+     "unit": "g"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 53,
+     "unit": "g"
+    }
+   ],
+   "name": "Caramel Macchiato",
+   "price": 180,
+   "target": 0.3,
+   "targetVol": 651,
+   "vat": 0.12
+  },
+  "dirty-matcha-12": {
+   "baseVol": 355,
+   "lines": [
+    {
+     "itemId": "matcha",
+     "note": "Sample note",
+     "qty": 37,
+     "unit": "g"
+    },
+    {
+     "itemId": "milk",
+     "note": "Sample note",
+     "qty": 114,
+     "unit": "ml"
+    },
+    {
+     "itemId": "sugar-syrup",
+     "note": "Sample note",
+     "qty": 69,
+     "unit": "ml"
+    },
+    {
+     "itemId": "milk",
+     "note": "Sample note",
+     "qty": 90,
+     "unit": "ml"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 107,
+     "unit": "g"
+    },
+    {
+     "itemId": "brewed-coffee",
+     "note": "Sample note",
+     "qty": 9,
+     "unit": "ml"
+    }
+   ],
+   "name": "Dirty Matcha",
+   "price": 140,
+   "target": 0.3,
+   "targetVol": 355,
+   "vat": 0.12
+  },
+  "dirty-matcha-16": {
+   "baseVol": 473,
+   "lines": [
+    {
+     "itemId": "matcha",
+     "note": "Sample note",
+     "qty": 35,
+     "unit": "g"
+    },
+    {
+     "itemId": "milk",
+     "note": "Sample note",
+     "qty": 69,
+     "unit": "ml"
+    },
+    {
+     "itemId": "sugar-syrup",
+     "qty": 63,
+     "unit": "ml"
+    },
+    {
+     "itemId": "milk",
+     "note": "Sample note",
+     "qty": 53,
+     "unit": "ml"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 25,
+     "unit": "g"
+    },
+    {
+     "itemId": "brewed-coffee",
+     "note": "Sample note",
+     "qty": 111,
+     "unit": "ml"
+    }
+   ],
+   "name": "Dirty Matcha",
+   "price": 160,
+   "target": 0.3,
+   "targetVol": 473,
+   "vat": 0.12
+  },
+  "dirty-matcha-22": {
+   "baseVol": 651,
+   "lines": [
+    {
+     "itemId": "matcha",
+     "note": "Sample note",
+     "qty": 9,
+     "unit": "g"
+    },
+    {
+     "itemId": "milk",
+     "note": "Sample note",
+     "qty": 46,
+     "unit": "ml"
+    },
+    {
+     "itemId": "sugar-syrup",
+     "qty": 43,
+     "unit": "ml"
+    },
+    {
+     "itemId": "milk",
+     "note": "Sample note",
+     "qty": 82,
+     "unit": "ml"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 113,
+     "unit": "g"
+    },
+    {
+     "itemId": "brewed-coffee",
+     "note": "Sample note",
+     "qty": 64,
+     "unit": "ml"
+    }
+   ],
+   "name": "Dirty Matcha",
+   "price": 180,
+   "target": 0.3,
+   "targetVol": 651,
+   "vat": 0.12
+  },
+  "iced-americano-12": {
+   "baseVol": 355,
+   "lines": [
+    {
+     "itemId": "cold-brew-coffee",
+     "qty": 22,
+     "unit": "g"
+    },
+    {
+     "itemId": "sugar-syrup",
+     "note": "Sample note",
+     "qty": 51,
+     "unit": "g"
+    },
+    {
+     "itemId": "distilled-water",
+     "qty": 36,
+     "unit": "g"
+    },
+    {
+     "itemId": "flavored-syrup-optional",
+     "note": "Sample note",
+     "qty": 46,
+     "unit": "g"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 53,
+     "unit": "g"
+    }
+   ],
+   "name": "Iced Americano",
+   "price": 110,
+   "target": 0.3,
+   "targetVol": 355,
+   "vat": 0.12
+  },
+  "iced-americano-16": {
+   "baseVol": 473,
+   "lines": [
+    {
+     "itemId": "cold-brew-coffee",
+     "qty": 42,
+     "unit": "g"
+    },
+    {
+     "itemId": "sugar-syrup",
+     "note": "Sample note",
+     "qty": 66,
+     "unit": "g"
+    },
+    {
+     "itemId": "distilled-water",
+     "qty": 76,
+     "unit": "g"
+    },
+    {
+     "itemId": "flavored-syrup-optional",
+     "note": "Sample note",
+     "qty": 30,
+     "unit": "g"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 111,
+     "unit": "g"
+    }
+   ],
+   "name": "Iced Americano",
+   "price": 120,
+   "target": 0.3,
+   "targetVol": 473,
+   "vat": 0.12
+  },
+  "iced-americano-22": {
+   "baseVol": 651,
+   "lines": [
+    {
+     "itemId": "cold-brew-coffee",
+     "qty": 57,
+     "unit": "g"
+    },
+    {
+     "itemId": "sugar-syrup",
+     "note": "Sample note",
+     "qty": 106,
+     "unit": "g"
+    },
+    {
+     "itemId": "distilled-water",
+     "qty": 78,
+     "unit": "g"
+    },
+    {
+     "itemId": "flavored-syrup-optional",
+     "note": "Sample note",
+     "qty": 78,
+     "unit": "g"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 64,
+     "unit": "g"
+    }
+   ],
+   "name": "Iced Americano",
+   "price": 135,
+   "target": 0.3,
+   "targetVol": 651,
+   "vat": 0.12
+  },
+  "iced-coffee-latte-12": {
+   "baseVol": 355,
+   "lines": [
+    {
+     "itemId": "milk",
+     "note": "Sample note",
+     "qty": 63,
+     "unit": "g"
+    },
+    {
+     "itemId": "sugar-syrup",
+     "note": "Sample note",
+     "qty": 85,
+     "unit": "g"
+    },
+    {
+     "itemId": "cold-brew-coffee",
+     "qty": 115,
+     "unit": "g"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 50,
+     "unit": "g"
+    }
+   ],
+   "name": "Iced Coffee Latte",
+   "price": 140,
+   "target": 0.3,
+   "targetVol": 355,
+   "vat": 0.12
+  },
+  "iced-coffee-latte-16": {
+   "baseVol": 473,
+   "lines": [
+    {
+     "itemId": "milk",
+     "note": "Sample note",
+     "qty": 87,
+     "unit": "g"
+    },
+    {
+     "itemId": "sugar-syrup",
+     "note": "Sample note",
+     "qty": 32,
+     "unit": "g"
+    },
+    {
+     "itemId": "cold-brew-coffee",
+     "qty": 72,
+     "unit": "g"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 44,
+     "unit": "g"
+    }
+   ],
+   "name": "Iced Coffee Latte",
+   "price": 160,
+   "target": 0.3,
+   "targetVol": 473,
+   "vat": 0.12
+  },
+  "iced-coffee-latte-22": {
+   "baseVol": 651,
+   "lines": [
+    {
+     "itemId": "milk",
+     "note": "Sample note",
+     "qty": 42,
+     "unit": "g"
+    },
+    {
+     "itemId": "sugar-syrup",
+     "note": "Sample note",
+     "qty": 49,
+     "unit": "g"
+    },
+    {
+     "itemId": "cold-brew-coffee",
+     "qty": 97,
+     "unit": "g"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 107,
+     "unit": "g"
+    }
+   ],
+   "name": "Iced Coffee Latte",
+   "price": 180,
+   "target": 0.3,
+   "targetVol": 651,
+   "vat": 0.12
+  },
+  "milo-dino-12": {
+   "baseVol": 355,
+   "lines": [
+    {
+     "itemId": "milo-powder",
+     "note": "Sample note",
+     "qty": 15,
+     "unit": "g"
+    },
+    {
+     "itemId": "hot-water",
+     "qty": 100,
+     "unit": "ml"
+    },
+    {
+     "itemId": "salt",
+     "qty": 11,
+     "unit": "g"
+    },
+    {
+     "itemId": "milk",
+     "qty": 51,
+     "unit": "ml"
+    },
+    {
+     "itemId": "milk-syrup",
+     "qty": 20,
+     "unit": "ml"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 11,
+     "unit": "g"
+    },
+    {
+     "itemId": "milo-powder",
+     "note": "Sample note",
+     "qty": 122,
+     "unit": "g"
+    }
+   ],
+   "name": "Milo Dino",
+   "price": 140,
+   "target": 0.3,
+   "targetVol": 355,
+   "vat": 0.12
+  },
+  "milo-dino-16": {
+   "baseVol": 473,
+   "lines": [
+    {
+     "itemId": "milo-powder",
+     "note": "Sample note",
+     "qty": 28,
+     "unit": "g"
+    },
+    {
+     "itemId": "hot-water",
+     "qty": 78,
+     "unit": "ml"
+    },
+    {
+     "itemId": "salt",
+     "qty": 19,
+     "unit": "g"
+    },
+    {
+     "itemId": "milk",
+     "qty": 57,
+     "unit": "ml"
+    },
+    {
+     "itemId": "milk-syrup",
+     "qty": 73,
+     "unit": "ml"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 19,
+     "unit": "g"
+    },
+    {
+     "itemId": "milo-powder",
+     "note": "Sample note",
+     "qty": 113,
+     "unit": "g"
+    }
+   ],
+   "name": "Milo Dino",
+   "price": 160,
+   "target": 0.3,
+   "targetVol": 473,
+   "vat": 0.12
+  },
+  "milo-dino-22": {
+   "baseVol": 651,
+   "lines": [
+    {
+     "itemId": "milo-powder",
+     "note": "Sample note",
+     "qty": 108,
+     "unit": "g"
+    },
+    {
+     "itemId": "hot-water",
+     "qty": 109,
+     "unit": "ml"
+    },
+    {
+     "itemId": "salt",
+     "qty": 108,
+     "unit": "g"
+    },
+    {
+     "itemId": "milk",
+     "qty": 111,
+     "unit": "ml"
+    },
+    {
+     "itemId": "milk-syrup",
+     "qty": 93,
+     "unit": "ml"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 35,
+     "unit": "g"
+    },
+    {
+     "itemId": "milo-powder",
+     "note": "Sample note",
+     "qty": 3,
+     "unit": "g"
+    }
+   ],
+   "name": "Milo Dino",
+   "price": 180,
+   "target": 0.3,
+   "targetVol": 651,
+   "vat": 0.12
+  },
+  "mocha-latte-12": {
+   "baseVol": 355,
+   "lines": [
+    {
+     "itemId": "chocolate-syrup",
+     "qty": 32,
+     "unit": "g"
+    },
+    {
+     "itemId": "cold-brew-coffee",
+     "qty": 11,
+     "unit": "g"
+    },
+    {
+     "itemId": "sugar-syrup",
+     "note": "Sample note",
+     "qty": 2,
+     "unit": "g"
+    },
+    {
+     "itemId": "milk",
+     "note": "Sample note",
+     "qty": 76,
+     "unit": "g"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 30,
+     "unit": "g"
+    }
+   ],
+   "name": "Mocha Latte",
+   "price": 140,
+   "target": 0.3,
+   "targetVol": 355,
+   "vat": 0.12
+  },
+  "mocha-latte-16": {
+   "baseVol": 473,
+   "lines": [
+    {
+     "itemId": "chocolate-syrup",
+     "qty": 91,
+     "unit": "g"
+    },
+    {
+     "itemId": "cold-brew-coffee",
+     "qty": 61,
+     "unit": "g"
+    },
+    {
+     "itemId": "sugar-syrup",
+     "note": "Sample note",
+     "qty": 85,
+     "unit": "g"
+    },
+    {
+     "itemId": "milk",
+     "note": "Sample note",
+     "qty": 31,
+     "unit": "g"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 108,
+     "unit": "g"
+    }
+   ],
+   "name": "Mocha Latte",
+   "price": 160,
+   "target": 0.3,
+   "targetVol": 473,
+   "vat": 0.12
+  },
+  "mocha-latte-22": {
+   "baseVol": 651,
+   "lines": [
+    {
+     "itemId": "chocolate-syrup",
+     "qty": 30,
+     "unit": "g"
+    },
+    {
+     "itemId": "cold-brew-coffee",
+     "qty": 47,
+     "unit": "g"
+    },
+    {
+     "itemId": "sugar-syrup",
+     "note": "Sample note",
+     "qty": 109,
+     "unit": "g"
+    },
+    {
+     "itemId": "milk",
+     "note": "Sample note",
+     "qty": 16,
+     "unit": "g"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 61,
+     "unit": "g"
+    }
+   ],
+   "name": "Mocha Latte",
+   "price": 180,
+   "target": 0.3,
+   "targetVol": 651,
+   "vat": 0.12
+  },
+  "oreo-latte-12": {
+   "baseVol": 355,
+   "lines": [
+    {
+     "itemId": "oreo",
+     "note": "Sample note",
+     "qty": 2,
+     "unit": "g"
+    },
+    {
+     "itemId": "milk-syrup",
+     "qty": 112,
+     "unit": "ml"
+    },
+    {
+     "itemId": "milk",
+     "qty": 78,
+     "unit": "ml"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 113,
+     "unit": "g"
+    },
+    {
+     "itemId": "brewed-coffee",
+     "qty": 5,
+     "unit": "ml"
+    }
+   ],
+   "name": "Oreo Coffee Latte",
+   "price": 140,
+   "target": 0.3,
+   "targetVol": 355,
+   "vat": 0.12
+  },
+  "oreo-latte-16": {
+   "baseVol": 473,
+   "lines": [
+    {
+     "itemId": "oreo",
+     "note": "Sample note",
+     "qty": 110,
+     "unit": "g"
+    },
+    {
+     "itemId": "milk-syrup",
+     "qty": 25,
+     "unit": "ml"
+    },
+    {
+     "itemId": "milk",
+     "qty": 118,
+     "unit": "ml"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 70,
+     "unit": "g"
+    },
+    {
+     "itemId": "brewed-coffee",
+     "qty": 84,
+     "unit": "ml"
+    }
+   ],
+   "name": "Oreo Coffee Latte",
+   "price": 160,
+   "target": 0.3,
+   "targetVol": 473,
+   "vat": 0.12
+  },
+  "oreo-latte-22": {
+   "baseVol": 651,
+   "lines": [
+    {
+     "itemId": "oreo",
+     "note": "Sample note",
+     "qty": 34,
+     "unit": "g"
+    },
+    {
+     "itemId": "milk-syrup",
+     "qty": 29,
+     "unit": "ml"
+    },
+    {
+     "itemId": "milk",
+     "qty": 27,
+     "unit": "ml"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 70,
+     "unit": "g"
+    },
+    {
+     "itemId": "brewed-coffee",
+     "qty": 8,
+     "unit": "ml"
+    }
+   ],
+   "name": "Oreo Coffee Latte",
+   "price": 180,
+   "target": 0.3,
+   "targetVol": 651,
+   "vat": 0.12
+  },
+  "sea-salt-cream-coffee-12": {
+   "baseVol": 355,
+   "lines": [
+    {
+     "itemId": "milk",
+     "qty": 94,
+     "unit": "ml"
+    },
+    {
+     "itemId": "milk-syrup",
+     "qty": 86,
+     "unit": "ml"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 88,
+     "unit": "g"
+    },
+    {
+     "itemId": "brewed-coffee",
+     "qty": 62,
+     "unit": "ml"
+    },
+    {
+     "itemId": "sea-salt-cream",
+     "note": "Sample note",
+     "qty": 6,
+     "unit": "ml"
+    }
+   ],
+   "name": "Sea Salt Cream Coffee",
+   "price": 140,
+   "target": 0.3,
+   "targetVol": 355,
+   "vat": 0.12
+  },
+  "sea-salt-cream-coffee-16": {
+   "baseVol": 473,
+   "lines": [
+    {
+     "itemId": "milk",
+     "qty": 15,
+     "unit": "ml"
+    },
+    {
+     "itemId": "milk-syrup",
+     "qty": 112,
+     "unit": "ml"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 18,
+     "unit": "g"
+    },
+    {
+     "itemId": "brewed-coffee",
+     "qty": 85,
+     "unit": "ml"
+    },
+    {
+     "itemId": "sea-salt-cream",
+     "note": "Sample note",
+     "qty": 109,
+     "unit": "ml"
+    }
+   ],
+   "name": "Sea Salt Cream Coffee",
+   "price": 160,
+   "target": 0.3,
+   "targetVol": 473,
+   "vat": 0.12
+  },
+  "sea-salt-cream-coffee-22": {
+   "baseVol": 651,
+   "lines": [
+    {
+     "itemId": "milk",
+     "qty": 6,
+     "unit": "ml"
+    },
+    {
+     "itemId": "milk-syrup",
+     "qty": 108,
+     "unit": "ml"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 105,
+     "unit": "g"
+    },
+    {
+     "itemId": "brewed-coffee",
+     "qty": 121,
+     "unit": "ml"
+    },
+    {
+     "itemId": "sea-salt-cream",
+     "note": "Sample note",
+     "qty": 117,
+     "unit": "ml"
+    }
+   ],
+   "name": "Sea Salt Cream Coffee",
+   "price": 180,
+   "target": 0.3,
+   "targetVol": 651,
+   "vat": 0.12
+  },
+  "spanish-latte-12": {
+   "baseVol": 355,
+   "lines": [
+    {
+     "itemId": "milk-syrup",
+     "note": "Sample note",
+     "qty": 94,
+     "unit": "g"
+    },
+    {
+     "itemId": "cold-brew-coffee",
+     "qty": 52,
+     "unit": "g"
+    },
+    {
+     "itemId": "milk",
+     "note": "Sample note",
+     "qty": 32,
+     "unit": "g"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 89,
+     "unit": "g"
+    }
+   ],
+   "name": "Spanish Latte",
+   "price": 150,
+   "target": 0.3,
+   "targetVol": 355,
+   "vat": 0.12
+  },
+  "spanish-latte-16": {
+   "baseVol": 473,
+   "lines": [
+    {
+     "itemId": "milk-syrup",
+     "note": "Sample note",
+     "qty": 108,
+     "unit": "g"
+    },
+    {
+     "itemId": "cold-brew-coffee",
+     "qty": 50,
+     "unit": "g"
+    },
+    {
+     "itemId": "milk",
+     "note": "Sample note",
+     "qty": 30,
+     "unit": "g"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 51,
+     "unit": "g"
+    }
+   ],
+   "name": "Spanish Latte",
+   "price": 170,
+   "target": 0.3,
+   "targetVol": 473,
+   "vat": 0.12
+  },
+  "spanish-latte-22": {
+   "baseVol": 651,
+   "lines": [
+    {
+     "itemId": "milk-syrup",
+     "note": "Sample note",
+     "qty": 108,
+     "unit": "g"
+    },
+    {
+     "itemId": "cold-brew-coffee",
+     "qty": 69,
+     "unit": "g"
+    },
+    {
+     "itemId": "milk",
+     "note": "Sample note",
+     "qty": 44,
+     "unit": "g"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 77,
+     "unit": "g"
+    }
+   ],
+   "name": "Spanish Latte",
+   "price": 190,
+   "target": 0.3,
+   "targetVol": 651,
+   "vat": 0.12
+  },
+  "strawberry-coffee-12": {
+   "baseVol": 355,
+   "lines": [
+    {
+     "itemId": "strawberry-jam",
+     "note": "Sample note",
+     "qty": 90,
+     "unit": "g"
+    },
+    {
+     "itemId": "strawberry-milk",
+     "qty": 42,
+     "unit": "g"
+    },
+    {
+     "itemId": "milk-syrup",
+     "note": "Sample note",
+     "qty": 89,
+     "unit": "g"
+    },
+    {
+     "itemId": "cold-brew-coffee",
+     "qty": 53,
+     "unit": "g"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 26,
+     "unit": "g"
+    }
+   ],
+   "name": "Strawberry Coffee",
+   "price": 140,
+   "target": 0.3,
+   "targetVol": 355,
+   "vat": 0.12
+  },
+  "strawberry-coffee-16": {
+   "baseVol": 473,
+   "lines": [
+    {
+     "itemId": "strawberry-jam",
+     "note": "Sample note",
+     "qty": 39,
+     "unit": "g"
+    },
+    {
+     "itemId": "strawberry-milk",
+     "qty": 120,
+     "unit": "g"
+    },
+    {
+     "itemId": "milk-syrup",
+     "note": "Sample note",
+     "qty": 121,
+     "unit": "g"
+    },
+    {
+     "itemId": "cold-brew-coffee",
+     "qty": 78,
+     "unit": "g"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 107,
+     "unit": "g"
+    }
+   ],
+   "name": "Strawberry Coffee",
+   "price": 160,
+   "target": 0.3,
+   "targetVol": 473,
+   "vat": 0.12
+  },
+  "strawberry-coffee-22": {
+   "baseVol": 651,
+   "lines": [
+    {
+     "itemId": "strawberry-jam",
+     "note": "Sample note",
+     "qty": 112,
+     "unit": "g"
+    },
+    {
+     "itemId": "strawberry-milk",
+     "qty": 26,
+     "unit": "g"
+    },
+    {
+     "itemId": "milk-syrup",
+     "note": "Sample note",
+     "qty": 79,
+     "unit": "g"
+    },
+    {
+     "itemId": "cold-brew-coffee",
+     "qty": 18,
+     "unit": "g"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 62,
+     "unit": "g"
+    }
+   ],
+   "name": "Strawberry Coffee",
+   "price": 180,
+   "target": 0.3,
+   "targetVol": 651,
+   "vat": 0.12
+  },
+  "toasted-milk-coffee-12": {
+   "baseVol": 355,
+   "lines": [
+    {
+     "itemId": "milk",
+     "qty": 69,
+     "unit": "ml"
+    },
+    {
+     "itemId": "toasted-milk-powder",
+     "note": "Sample note",
+     "qty": 95,
+     "unit": "g"
+    },
+    {
+     "itemId": "milk-syrup",
+     "note": "Sample note",
+     "qty": 115,
+     "unit": "ml"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 60,
+     "unit": "g"
+    },
+    {
+     "itemId": "brewed-coffee",
+     "qty": 24,
+     "unit": "ml"
+    },
+    {
+     "itemId": "milk-crumbles",
+     "note": "Sample note",
+     "qty": 56,
+     "unit": "g"
+    }
+   ],
+   "name": "Toasted Milk Coffee",
+   "price": 140,
+   "target": 0.3,
+   "targetVol": 355,
+   "vat": 0.12
+  },
+  "toasted-milk-coffee-16": {
+   "baseVol": 473,
+   "lines": [
+    {
+     "itemId": "milk",
+     "qty": 22,
+     "unit": "ml"
+    },
+    {
+     "itemId": "toasted-milk-powder",
+     "note": "Sample note",
+     "qty": 82,
+     "unit": "g"
+    },
+    {
+     "itemId": "milk-syrup",
+     "note": "Sample note",
+     "qty": 65,
+     "unit": "ml"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 69,
+     "unit": "g"
+    },
+    {
+     "itemId": "brewed-coffee",
+     "qty": 63,
+     "unit": "ml"
+    },
+    {
+     "itemId": "milk-crumbles",
+     "note": "Sample note",
+     "qty": 93,
+     "unit": "g"
+    }
+   ],
+   "name": "Toasted Milk Coffee",
+   "price": 160,
+   "target": 0.3,
+   "targetVol": 473,
+   "vat": 0.12
+  },
+  "toasted-milk-coffee-22": {
+   "baseVol": 651,
+   "lines": [
+    {
+     "itemId": "milk",
+     "qty": 45,
+     "unit": "ml"
+    },
+    {
+     "itemId": "toasted-milk-powder",
+     "note": "Sample note",
+     "qty": 92,
+     "unit": "g"
+    },
+    {
+     "itemId": "milk-syrup",
+     "note": "Sample note",
+     "qty": 5,
+     "unit": "ml"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 38,
+     "unit": "g"
+    },
+    {
+     "itemId": "brewed-coffee",
+     "qty": 67,
+     "unit": "ml"
+    },
+    {
+     "itemId": "milk-crumbles",
+     "note": "Sample note",
+     "qty": 26,
+     "unit": "g"
+    }
+   ],
+   "name": "Toasted Milk Coffee",
+   "price": 180,
+   "target": 0.3,
+   "targetVol": 651,
+   "vat": 0.12
+  },
+  "vanilla-latte-12": {
+   "baseVol": 355,
+   "lines": [
+    {
+     "itemId": "vanilla-syrup",
+     "qty": 89,
+     "unit": "g"
+    },
+    {
+     "itemId": "sugar-syrup",
+     "note": "Sample note",
+     "qty": 37,
+     "unit": "g"
+    },
+    {
+     "itemId": "cold-brew-coffee",
+     "qty": 30,
+     "unit": "g"
+    },
+    {
+     "itemId": "milk",
+     "note": "Sample note",
+     "qty": 81,
+     "unit": "g"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 54,
+     "unit": "g"
+    }
+   ],
+   "name": "Vanilla Latte",
+   "price": 140,
+   "target": 0.3,
+   "targetVol": 355,
+   "vat": 0.12
+  },
+  "vanilla-latte-16": {
+   "baseVol": 473,
+   "lines": [
+    {
+     "itemId": "vanilla-syrup",
+     "qty": 11,
+     "unit": "g"
+    },
+    {
+     "itemId": "sugar-syrup",
+     "note": "Sample note",
+     "qty": 95,
+     "unit": "g"
+    },
+    {
+     "itemId": "cold-brew-coffee",
+     "qty": 101,
+     "unit": "g"
+    },
+    {
+     "itemId": "milk",
+     "note": "Sample note",
+     "qty": 112,
+     "unit": "g"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 111,
+     "unit": "g"
+    }
+   ],
+   "name": "Vanilla Latte",
+   "price": 160,
+   "target": 0.3,
+   "targetVol": 473,
+   "vat": 0.12
+  },
+  "vanilla-latte-22": {
+   "baseVol": 651,
+   "lines": [
+    {
+     "itemId": "vanilla-syrup",
+     "qty": 84,
+     "unit": "g"
+    },
+    {
+     "itemId": "sugar-syrup",
+     "note": "Sample note",
+     "qty": 117,
+     "unit": "g"
+    },
+    {
+     "itemId": "cold-brew-coffee",
+     "qty": 5,
+     "unit": "g"
+    },
+    {
+     "itemId": "milk",
+     "note": "Sample note",
+     "qty": 93,
+     "unit": "g"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 74,
+     "unit": "g"
+    }
+   ],
+   "name": "Vanilla Latte",
+   "price": 180,
+   "target": 0.3,
+   "targetVol": 651,
+   "vat": 0.12
+  },
+  "white-mocha-latte-12": {
+   "baseVol": 355,
+   "lines": [
+    {
+     "itemId": "white-chocolate-sauce",
+     "qty": 89,
+     "unit": "g"
+    },
+    {
+     "itemId": "milk-syrup",
+     "note": "Sample note",
+     "qty": 110,
+     "unit": "g"
+    },
+    {
+     "itemId": "cold-brew-coffee",
+     "qty": 6,
+     "unit": "g"
+    },
+    {
+     "itemId": "milk",
+     "note": "Sample note",
+     "qty": 18,
+     "unit": "g"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 12,
+     "unit": "g"
+    }
+   ],
+   "name": "White Mocha Latte",
+   "price": 140,
+   "target": 0.3,
+   "targetVol": 355,
+   "vat": 0.12
+  },
+  "white-mocha-latte-16": {
+   "baseVol": 473,
+   "lines": [
+    {
+     "itemId": "white-chocolate-sauce",
+     "qty": 15,
+     "unit": "g"
+    },
+    {
+     "itemId": "milk-syrup",
+     "note": "Sample note",
+     "qty": 12,
+     "unit": "g"
+    },
+    {
+     "itemId": "cold-brew-coffee",
+     "qty": 3,
+     "unit": "g"
+    },
+    {
+     "itemId": "milk",
+     "note": "Sample note",
+     "qty": 75,
+     "unit": "g"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 115,
+     "unit": "g"
+    }
+   ],
+   "name": "White Mocha Latte",
+   "price": 160,
+   "target": 0.3,
+   "targetVol": 473,
+   "vat": 0.12
+  },
+  "white-mocha-latte-22": {
+   "baseVol": 651,
+   "lines": [
+    {
+     "itemId": "white-chocolate-sauce",
+     "qty": 25,
+     "unit": "g"
+    },
+    {
+     "itemId": "milk-syrup",
+     "note": "Sample note",
+     "qty": 18,
+     "unit": "g"
+    },
+    {
+     "itemId": "cold-brew-coffee",
+     "qty": 26,
+     "unit": "g"
+    },
+    {
+     "itemId": "milk",
+     "note": "Sample note",
+     "qty": 83,
+     "unit": "g"
+    },
+    {
+     "itemId": "ice",
+     "note": "Sample note",
+     "qty": 31,
+     "unit": "g"
+    }
+   ],
+   "name": "White Mocha Latte",
+   "price": 180,
+   "target": 0.3,
+   "targetVol": 651,
+   "vat": 0.12
+  }
+ },
+ "_about": "Scrambled sample data for tests. Amounts are random, not real recipes."
+}
