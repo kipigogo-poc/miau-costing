@@ -20,7 +20,7 @@
           },
           {
             "key": "X-Frame-Options",
-            "value": "DENY"
+            "value": "SAMEORIGIN"
           },
           {
             "key": "Permissions-Policy",
@@ -81,7 +81,7 @@
         "headers": [
           {
             "key": "Content-Security-Policy",
-            "value": "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+            "value": "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'"
           }
         ]
       }

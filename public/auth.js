@@ -70,6 +70,12 @@ function makeDb() {
 /* ---------- sign-in ---------- */
 const provider = new GoogleAuthProvider();
 provider.setCustomParameters({ prompt: "select_account" });
+// Google doesn't allow sign-in inside Messenger/Facebook/Instagram etc. Say so up front.
+const UA = navigator.userAgent, IN_APP = /FBAN|FBAV|FB_IAB|Messenger|Instagram|Line\/|TikTok|Twitter/i.test(UA), IOS = /iPhone|iPad|iPod/.test(UA);
+const BLOCKED_MSG = IN_APP
+  ? `Google sign-in doesn't work inside this app. Tap <b>${IOS ? "⋯" : "⋮"}</b> → <b>Open in ${IOS ? "Safari" : "Chrome"}</b>, then sign in there.`
+  : `Your browser blocked the sign-in step. Open this page in <b>${IOS ? "Safari" : "Chrome"}</b> (not a private window) and try again.`;
+if (IN_APP) gateMsg.innerHTML = BLOCKED_MSG;
 gateBtn.addEventListener("click", async () => {
   gateMsg.textContent = "";
   try { await signInWithPopup(auth, provider); }
@@ -78,7 +84,7 @@ gateBtn.addEventListener("click", async () => {
     if (e.code !== "auth/popup-closed-by-user" && e.code !== "auth/cancelled-popup-request") gateMsg.textContent = "Sign-in failed. Try again.";
   }
 });
-getRedirectResult(auth).catch(() => { gateMsg.textContent = "Sign-in failed. Try again."; });
+getRedirectResult(auth).catch(e => { gateMsg.innerHTML = /missing-initial-state|web-storage-unsupported|initial state/i.test((e && (e.code + " " + e.message)) || "") ? BLOCKED_MSG : "Sign-in failed. Try again."; });
 
 // Google Sheets permission (asked only when someone uses Sheets sync). Token lives in memory for ~55 minutes.
 let sheetsTok = null;
