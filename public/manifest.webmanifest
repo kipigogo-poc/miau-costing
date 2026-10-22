@@ -1,0 +1,18 @@
+{
+  "id": "/order.html",
+  "name": "MIAU · Order ahead",
+  "short_name": "MIAU",
+  "description": "Order MIAU drinks ahead, pay with GCash and pick up.",
+  "start_url": "/order.html?source=app",
+  "scope": "/order",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fcf8f1",
+  "theme_color": "#fcf8f1",
+  "categories": ["food", "shopping"],
+  "icons": [
+    { "src": "/brand/app-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/brand/app-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/brand/app-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

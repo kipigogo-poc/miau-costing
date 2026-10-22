@@ -6,8 +6,13 @@
 <meta name="theme-color" content="#fcf8f1">
 <meta name="color-scheme" content="light">
 <title>MIAU · Order</title>
-<link rel="icon" href="brand/icon-192.png">
-<link rel="apple-touch-icon" href="brand/icon-192.png">
+<link rel="icon" href="brand/favicon-64.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="brand/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="MIAU">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap">
@@ -38,6 +43,20 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .announce{background:var(--cocoa);color:var(--cream);text-align:center;font:700 13px/1 var(--body);letter-spacing:.04em;padding:calc(10px + env(safe-area-inset-top,0px)) 16px 10px}
 .hdr{position:sticky;top:env(safe-area-inset-top,0px);z-index:40;background:rgba(252,248,241,.94);backdrop-filter:saturate(1.2) blur(8px);border-bottom:1px solid transparent;transition:border-color .2s}
 .hdr.scrolled{border-color:var(--line)}
+.hdr-r{display:flex;align-items:center;gap:8px}
+.getapp{display:inline-flex;align-items:center;gap:7px;border:1.5px solid var(--cocoa);background:transparent;color:var(--cocoa);border-radius:var(--pill);padding:8.5px 14px;font:700 14px var(--body);cursor:pointer}
+.getapp[hidden]{display:none}
+.getapp{white-space:nowrap}
+.getapp .short{display:none}
+@media (max-width:480px){.getapp .long{display:none}.getapp .short{display:inline}.getapp{padding-inline:12px}}
+.getapp:hover{background:var(--sand)}
+.ios-tip{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:80;background:var(--cocoa);color:var(--cream);border-radius:20px;padding:16px 18px 16px 16px;display:flex;gap:14px;align-items:center;box-shadow:0 14px 40px rgba(62,47,36,.3);font-size:15px;line-height:1.45}
+.ios-tip img{width:52px;height:52px;border-radius:12px;flex:none}
+.ios-tip b{font-weight:800}
+.ios-tip .x{margin-left:auto;align-self:flex-start;background:none;border:0;color:inherit;font-size:22px;line-height:1;cursor:pointer;padding:0 2px;opacity:.8}
+.ios-tip svg{vertical-align:-3px}
+.offline{background:var(--terra);color:#fff;text-align:center;font:700 13px var(--body);padding:7px 12px}
+@media (display-mode:standalone){.announce{padding-top:6px}}
 .hdr .wrap{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:12px}
 .logo{display:block;height:36px;width:auto}
 .logo img{height:100%;width:auto;display:block}
@@ -185,7 +204,8 @@ footer p{margin:0;color:var(--muted);font-size:14px;font-weight:600}
 <div class="announce" id="announce">ORDER AHEAD · PICK UP · PAY WITH GCASH</div>
 <header class="hdr" id="hdr"><div class="wrap">
   <a class="logo" href="./order.html" aria-label="MIAU home"><img src="brand/miau-wordmark.png" srcset="brand/miau-wordmark.png 640w, brand/miau-wordmark@2x.png 1280w" sizes="170px" alt="MIAU" width="640" height="183"></a>
-  <button class="bagbtn" id="bagbtn" aria-label="Open bag"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 7h12l-1 13H7z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg>Bag <span class="n" id="bagn">0</span></button>
+  <div class="hdr-r"><button class="getapp" id="getapp" hidden><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg><span class="long">Get the app</span><span class="short">App</span></button>
+  <button class="bagbtn" id="bagbtn" aria-label="Open bag"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 7h12l-1 13H7z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg>Bag <span class="n" id="bagn">0</span></button></div>
 </div></header>
 <main class="wrap" id="view"><div class="empty">Loading menu…</div></main>
 <footer><div class="wrap"><img src="brand/miau-wordmark.png" alt="MIAU" width="640" height="183"><p id="foot">Pickup only · Pay with GCash · Calories are estimates from ingredient labels.</p></div></footer>
@@ -193,5 +213,6 @@ footer p{margin:0;color:var(--muted);font-size:14px;font-weight:600}
 <div class="shade" id="shade"></div>
 <section class="sheet" id="sheet" aria-label="Your bag" role="dialog" aria-modal="true"></section>
 <script type="module" src="order.js"></script>
+<script src="pwa.js" defer></script>
 </body>
 </html>

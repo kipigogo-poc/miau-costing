@@ -21,7 +21,7 @@ for (const e of emails) if (e !== e.toLowerCase() || !/^[^@\s]+@[^@\s]+\.[^@\s]+
 const html = read("public/index.html");
 const inline = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
 inline.forEach((code, i) => { try { new vm.Script(code, { filename: `index.html inline script ${i + 1}` }); } catch (e) { problems.push(`index.html script ${i + 1}: ${e.message}`); } });
-for (const f of ["public/auth.js", "public/order.js", "public/config.js"]) {
+for (const f of ["public/auth.js", "public/order.js", "public/config.js", "public/pwa.js", "public/sw.js"]) {
   const r = spawnSync(process.execPath, ["--check", "--input-type=module"], { input: read(f), encoding: "utf8" });
   if (r.status !== 0) problems.push(`${f}: ${(r.stderr || "").split("\n").find(l => /Error/.test(l)) || "syntax error"}`);
 }
@@ -29,8 +29,14 @@ for (const f of ["public/firebase.js", "public/firebase-public.js", "public/orde
   if (!existsSync(new URL("../" + f, import.meta.url))) problems.push(`${f} is missing.`);
 
 // 3. No private data or keys committed
+// 3. Install-as-app manifest: valid JSON, icons exist
+try {
+  const m = JSON.parse(read("public/manifest.webmanifest"));
+  for (const i of m.icons || []) if (!existsSync(new URL("../public" + i.src, import.meta.url))) problems.push(`manifest icon missing: ${i.src}`);
+  if (!(m.icons || []).some(i => i.sizes === "512x512")) problems.push("manifest needs a 512x512 icon.");
+} catch (e) { problems.push(`public/manifest.webmanifest: ${e.message}`); }
 for (const f of ["drink-costing-backup.json", "service-account.json"])
   if (existsSync(new URL("../" + f, import.meta.url))) problems.push(`${f} must not be in the repository.`);
 
 if (problems.length) { console.error("✗ Not ready to deploy:\n  - " + problems.join("\n  - ")); process.exit(1); }
-console.log(`✓ Ready: config set, ${emails.length} staff email(s), ${inline.length + 3} scripts parse.`);
+console.log(`✓ Ready: config set, ${emails.length} staff email(s), ${inline.length + 5} scripts parse, app manifest OK.`);
