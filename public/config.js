@@ -13,4 +13,4 @@ export const firebaseConfig = {
 export const SHOP_ID = "main";
 
 // Shown on the sign-in screen only. Real access control is in firestore.rules.
-export const SHOP_NAME = "My Coffee Shop";
+export const SHOP_NAME = "miauxeveryday";
