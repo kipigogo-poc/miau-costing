@@ -10,7 +10,7 @@ import { firebaseConfig, SHOP_ID, SHOP_NAME } from "./config.js";
 
 const $ = s => document.querySelector(s);
 const gate = $("#gate"), gateMsg = $("#gate-msg"), gateBtn = $("#gate-btn");
-$("#gate-shop").textContent = SHOP_NAME || "Drink Costing";
+$("#gate-shop").textContent = (SHOP_NAME ? SHOP_NAME + " · " : "") + "Staff";
 try { const m = sessionStorage.getItem("gateMsg"); if (m) { gateMsg.innerHTML = m; gateBtn.textContent = "Use another Google account"; sessionStorage.removeItem("gateMsg"); } } catch {}
 
 let app, auth, db;
