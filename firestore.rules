@@ -7,7 +7,7 @@ service cloud.firestore {
       return request.auth != null
         && request.auth.token.email_verified == true
         && request.auth.token.email.lower() in [
-          'your.email@gmail.com'
+          'pop.rim.25@gmail.com'
         ];
     }
     function str(v, lo, hi) { return v is string && v.size() >= lo && v.size() <= hi; }
