@@ -19,5 +19,7 @@ export const SHOP_NAME = "miauxeveryday";
 export const INSTAGRAM = {
   solaire: "https://www.instagram.com/reel/DeZCpGBy_Nh/",
   lucy: "https://www.instagram.com/reel/DebSOMFS7xS/",
+  muzan: "https://www.instagram.com/reel/DeeJaSiyZxi/",
+  riri: "https://www.instagram.com/reel/DeeJaSiyZxi/",
   default: "https://www.instagram.com/reel/DeZCpGBy_Nh/"
 };
