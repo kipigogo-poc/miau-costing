@@ -52,7 +52,37 @@ function picked(g, rows) {
   const first = rows.find(([, m]) => m.available) || rows[0];
   return first && first[0];
 }
-const thumb = (g, name, cls) => S.photos[g] ? `<img src="${S.photos[g]}" alt="${esc(name)}" loading="lazy">` : `<span class="mono" aria-hidden="true">${esc((name[0] || "?").toUpperCase())}</span>`;
+const CATS = ["muzan", "riri", "lucy", "solaire"];
+const catFor = g => CATS[[...String(g)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7) % CATS.length];
+const thumb = (g, name, i) => S.photos[g] ? `<img src="${S.photos[g]}" alt="${esc(name)}" loading="lazy">`
+  : `<img class="cat" src="brand/cat-${i == null ? catFor(g) : CATS[i % CATS.length]}.webp" alt="" loading="lazy">`;
+// Shown while no drinks are published yet. Mascots, not products.
+const CREW = [
+  { cat: "muzan", name: "Muzan", breed: "Siberian Forest Cat", kcal: 420,
+    desc: "A thick, cold-brewed fluffuccino straight from the Siberian woods. Triple-coated in foam and so majestic it's basically royal-tea.",
+    inside: "Forest-roast espresso, extra floof, a dash of drama" },
+  { cat: "riri", name: "Riri", breed: "Munchkin", kcal: 99,
+    desc: "Short pour, big purr-sonality. A fun-sized latte whose legs don't reach the floor but whose attitude reaches the ceiling.",
+    inside: "Mini espresso, oat cloud, maximum cute" },
+  { cat: "lucy", name: "Lucy", breed: "Himalayan", kcal: 280,
+    desc: "A latte with altitude. Silky, flat-faced and fabulously smooth: the creamiest climb this side of Meow-nt Everest.",
+    inside: "Peak-roast beans, pink sea-salt cream, one smug little smile" },
+  { cat: "solaire", name: "Solaire", breed: "Sphynx", kcal: 9,
+    desc: "No fluff, just the good stuff. A bare, bold, sun-kissed americano that answers every riddle in one sip. Praise the sun.",
+    inside: "Naked espresso, pure sunshine, zero fur (guaranteed)" }
+];
+const crewHTML = () => `<div class="grid">${CREW.map((c, i) => `
+  <article class="item crew">
+    <div class="tile t${i % 3}"><img class="cat" src="brand/cat-${c.cat}.webp" alt="${c.name}, a ${c.breed} in sunglasses" loading="lazy">
+      <span class="tag">Meet the crew</span><span class="kcalchip">${c.kcal} kcal*</span></div>
+    <div class="ib">
+      <h2>${c.name}</h2><p class="breed">${c.breed}</p>
+      <p class="desc">${c.desc}</p>
+      <p class="ing"><b>Inside</b>${c.inside}</p>
+      <div class="buy"><span class="price soon">Brewing…</span><button class="add" disabled>Coming soon</button></div>
+    </div>
+  </article>`).join("")}</div>
+  <p class="crewnote">*Mascot calories. Highly scientific. Not real drinks… yet. Our menu is brewing, check back soon!</p>`;
 function updateBag() {
   const n = cartCount(), open = S.settings && S.settings.open;
   $("#bagn").textContent = n;
@@ -76,8 +106,8 @@ function render() {
     <section class="hero">
       <div class="hero-art"><img src="brand/miau-cats-800.webp" srcset="brand/miau-cats-800.webp 800w, brand/miau-cats-1600.webp 1600w" sizes="(min-width:1240px) 1208px, 100vw" alt="Four cool cats in sunglasses lounging on the MIAU letters" width="1600" height="800"></div>
       <div class="hero-copy">
-        <div><h1>Shop all</h1><p>Handcrafted coffee and treats. Order ahead, pay with GCash, skip the line.</p></div>
-        <span class="status ${s.open ? "" : "closed"}"><i></i>${s.open ? "Open for orders" : "Closed for online orders"}</span>
+        <div><h1>${all.length ? "Shop all" : "Meet the crew"}</h1><p>${all.length ? "Handcrafted coffee and treats. Order ahead, pay with GCash, skip the line." : "Our menu is still brewing. Until then, say hi to the four cool cats behind MIAU."}</p></div>
+        ${all.length ? `<span class="status ${s.open ? "" : "closed"}"><i></i>${s.open ? "Open for orders" : "Closed for online orders"}</span>` : `<span class="status soon"><i></i>Menu coming soon</span>`}
       </div>
       ${mine.length ? `<div class="mine">${mine.map(o => `<a href="?o=${encodeURIComponent(o.id)}">Your order #${esc(o.code)} ›</a>`).join("")}</div>` : ""}
     </section>
@@ -85,7 +115,7 @@ function render() {
     <div class="grid">${shown.map(([g, grp], i) => {
       const id = picked(g, grp.rows), m = S.menu[id] || {}, n = S.cart[id] || 0, anyAvail = grp.rows.some(([, x]) => x.available);
       return `<article class="item">
-        <div class="tile t${i % 3}">${thumb(g, grp.name)}
+        <div class="tile t${i % 3}">${thumb(g, grp.name, i)}
           ${!anyAvail ? `<span class="tag">Sold out</span>` : ""}
           ${m.kcal != null ? `<span class="kcalchip"><span class="kcal">${m.kcal} kcal</span></span>` : ""}
         </div>
@@ -100,7 +130,7 @@ function render() {
                 : `<button class="add" data-inc="${id}" aria-label="Add ${esc(grp.name)} ${m.cup ? m.cup + " ml" : ""} to bag">Add to bag</button>`}
           </div>
         </div>
-      </article>`; }).join("") || `<div class="empty">The menu isn't online yet. Check back soon!</div>`}</div>`;
+      </article>`; }).join("")}</div>${all.length ? "" : crewHTML()}`;
 }
 
 /* ---------- bag ---------- */
@@ -117,7 +147,7 @@ function renderBag() {
     <div class="sh-h"><h3>Your bag</h3><button class="x" id="close" aria-label="Close">✕</button></div>
     <div class="sh-b">
       ${lines.map(([id, n]) => { const m = S.menu[id]; return `<div class="bl">
-        <div class="th t${0}" style="background:var(--sand)">${thumb(m.group, m.name)}</div>
+        <div class="th" style="background:var(--sand)">${thumb(m.group, m.name)}</div>
         <div><h4>${esc(m.name)}</h4><small>${m.cup ? m.cup + " ml · " : ""}${peso(m.price)}</small></div>
         <div class="qty"><button data-dec="${id}" aria-label="Remove one">−</button><b>${n}</b><button data-inc="${id}" aria-label="Add one">+</button></div>
       </div>`; }).join("")}
