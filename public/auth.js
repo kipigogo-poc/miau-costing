@@ -107,6 +107,9 @@ function openSheet() {
         </div>
         <div class="faint" id="acct-msg" style="font-size:12px;min-height:16px"></div>
       </div>
+      ${window.miauStandalone ? "" : `<div class="fld"><span>App</span>
+        <div><button class="btn primary" id="acct-install">Install MIAU Staff app</button></div>
+        <div class="faint" id="acct-install-msg" style="font-size:13px;line-height:1.5"></div></div>`}
     </div>
     <div class="df"><span></span><button class="btn danger" id="acct-signout">Sign out</button></div>`;
   sheet.classList.add("on"); shade.classList.add("on");
@@ -119,6 +122,11 @@ document.addEventListener("click", e => {
   else if (t.id === "acct-signout") signOut(auth);
   else if (t.id === "acct-export") exportBackup();
   else if (t.id === "acct-import-go") importNow();
+  else if (t.id === "acct-install" && window.miauInstall) window.miauInstall().then(r => {
+    const m = $("#acct-install-msg"); if (!m) return;
+    if (r === "installed") { m.textContent = "Installed. Open MIAU Staff from your home screen or apps."; t.hidden = true; }
+    else if (r !== "dismissed") m.innerHTML = r;   // fixed text from staff-pwa.js, no user data
+  });
 });
 shade.addEventListener("click", closeSheet);
 

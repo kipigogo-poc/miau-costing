@@ -5,8 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <meta name="theme-color" content="#fcf8f1">
-<link rel="icon" href="brand/icon-192.png">
-<link rel="apple-touch-icon" href="brand/icon-192.png">
+<link rel="icon" href="brand/staff-favicon-64.png">
+<link rel="manifest" href="manifest-staff.webmanifest">
+<link rel="apple-touch-icon" href="brand/staff-apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="MIAU Staff">
 <title>MIAU Staff</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -453,7 +457,8 @@ const IC={
 };
 const CAT_LABEL={"Ingredient":"Ingredient","Packaging":"Packaging","House-made":"In-house"};
 
-const S={items:{},drinks:{},view:"menu",sel:null,drawer:null,q:"",mf:"all",iq:"",if:"all",db:null,loaded:{items:false,drinks:false},readonly:false};
+const START_VIEW=(()=>{try{const u=new URL(location.href),v=u.searchParams.get("view");if(u.searchParams.has("view")||u.searchParams.has("source")){u.searchParams.delete("view");u.searchParams.delete("source");history.replaceState(null,"",u.pathname+(u.search||"")+u.hash);}return ["menu","items","preps","orders","online"].includes(v)?v:"menu";}catch{return "menu";}})();
+const S={items:{},drinks:{},view:START_VIEW,sel:null,drawer:null,q:"",mf:"all",iq:"",if:"all",db:null,loaded:{items:false,drinks:false},readonly:false};
 const view=$("#view");
 
 /* ---------- persistence ---------- */
@@ -1251,6 +1256,7 @@ if (ORD.on) {
 }
 
 </script>
+<script src="staff-pwa.js" defer></script>
 <script type="module" src="auth.js"></script>
 </body>
 </html>
