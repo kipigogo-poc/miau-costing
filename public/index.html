@@ -1286,10 +1286,12 @@ if (ORD.on) {
         if (changed) await photosCol.doc(PHOTO_IDX).set({ v: idx });
       } catch { maintained = false; }
     }
-    db.collection("settings").doc("public").onSnapshot(d => { ORD.settings = d.exists ? d.data() : { open: false }; maintainPhotos(); if ((S.view === "online" || S.view === "orders") && !editing()) render(); });
+    db.collection("settings").doc("public").onSnapshot(d => { ORD.settings = Object.assign(d.exists ? d.data() : { open: false }, ORD.pendingSettings || {}); maintainPhotos(); if ((S.view === "online" || S.view === "orders") && !editing()) render(); });
   })();
 
-  const saveSettings = patch => { ORD.settings = Object.assign({}, ORD.settings || {}, patch); clearTimeout(saveSettings.t); saveSettings.t = setTimeout(() => S.db.collection("settings").doc("public").set(JSON.parse(JSON.stringify(ORD.settings))).catch(() => toastErr("Not saved")), 400); };
+  // Typed edits wait 0.4 s before saving; until then they're kept in ORD.pendingSettings so an incoming update can't wipe them.
+  const saveSettings = patch => { ORD.pendingSettings = Object.assign(ORD.pendingSettings || {}, patch); ORD.settings = Object.assign({}, ORD.settings || {}, patch); clearTimeout(saveSettings.t);
+    saveSettings.t = setTimeout(() => { ORD.pendingSettings = null; S.db.collection("settings").doc("public").set(JSON.parse(JSON.stringify(ORD.settings))).catch(() => toastErr("Not saved")); }, 400); };
 
   document.addEventListener("click", async e => {
     const t = e.target.closest("button"); if (!t) return;
