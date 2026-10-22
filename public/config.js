@@ -14,3 +14,6 @@ export const SHOP_ID = "main";
 
 // Shown on the sign-in screen only. Real access control is in firestore.rules.
 export const SHOP_NAME = "miauxeveryday";
+
+// Instagram post the free "Adopt a cat" button sends people to (paste the post link).
+export const INSTAGRAM_URL = "";

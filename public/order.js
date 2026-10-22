@@ -1,6 +1,6 @@
 // MIAU customer ordering page. No login. Reads the public menu, creates an order, shows the GCash QR, accepts a reference number.
 import { initializeApp, initializeFirestore, persistentLocalCache, doc, setDoc, updateDoc, onSnapshot, collection, serverTimestamp, getDoc, getDocFromCache } from "./firebase-public.js";
-import { firebaseConfig, SHOP_ID } from "./config.js";
+import { firebaseConfig, SHOP_ID, INSTAGRAM_URL } from "./config.js";
 
 const $ = s => document.querySelector(s);
 // ---- Untrusted data guards: everything from the database is cleaned before it reaches the page ----
@@ -113,10 +113,32 @@ const crewHTML = () => `<div class="grid">${CREW.map((c, i) => `
       <h2>${c.name}</h2><p class="breed">${c.breed}</p>
       <p class="desc">${c.desc}</p>
       <p class="ing"><b>Inside</b>${c.inside}</p>
-      <div class="buy"><span class="price soon">Brewing…</span><button class="add" disabled>Coming soon</button></div>
+      <div class="buy"><span class="price free">FREE</span><button class="add" data-adopt="${c.cat}">Adopt ${c.name}</button></div>
     </div>
   </article>`).join("")}</div>
-  <p class="crewnote">*Mascot calories. Highly scientific. Not real drinks… yet. Our menu is brewing, check back soon!</p>`;
+  <p class="crewnote">*Mascot calories. Highly scientific. Adoption is free, the purrs are priceless. Real drinks are brewing, check back soon!</p>`;
+// Free "adoption": a cute confirmation, then off to our Instagram post. No order is created.
+const IG = /^https:\/\/(www\.)?instagram\.com\/[A-Za-z0-9_./?=&%-]+$/.test(INSTAGRAM_URL) ? INSTAGRAM_URL : "";
+let adoptTimer = null;
+function adopt(catId) {
+  const c = CREW.find(x => x.cat === catId); if (!c) return;
+  closeAdopt();
+  const d = document.createElement("div"); d.className = "adopt"; d.id = "adopt"; d.setAttribute("role", "dialog"); d.setAttribute("aria-modal", "true"); d.setAttribute("aria-label", `${c.name} adopted`);
+  d.innerHTML = `<div class="adopt-card">
+      <button class="adopt-x" id="adopt-x" aria-label="Close">×</button>
+      <img src="brand/cat-${c.cat}.webp" alt="" width="560" height="560">
+      <h2>${c.name} is yours! 🐾</h2>
+      <p>Adopted for <b>₱0.00</b>. ${c.name} says thanks with ${c.kcal} imaginary calories of love.</p>
+      ${IG ? `<p class="adopt-go" id="adopt-go">Taking you to our Instagram…</p>
+      <a class="add adopt-ig" href="${IG}" rel="noopener">Open Instagram</a>` : `<p class="adopt-go">Follow us on Instagram for the real menu drop.</p>`}
+    </div>`;
+  document.body.append(d); document.body.classList.add("adopting");
+  d.addEventListener("click", e => { if (e.target === d || e.target.id === "adopt-x") closeAdopt(); });
+  if (IG) adoptTimer = setTimeout(() => { location.href = IG; }, 2600);
+}
+function closeAdopt() { clearTimeout(adoptTimer); adoptTimer = null; const d = document.getElementById("adopt"); if (d) d.remove(); document.body.classList.remove("adopting"); }
+addEventListener("keydown", e => { if (e.key === "Escape") closeAdopt(); });
+addEventListener("pageshow", e => { if (e.persisted) closeAdopt(); });
 function updateBag() {
   const n = cartCount(), open = S.settings && S.settings.open;
   $("#bagn").textContent = n;
@@ -250,6 +272,7 @@ function renderOrder() {
 
 /* ---------- events ---------- */
 document.addEventListener("click", async e => {
+  { const a = e.target.closest("[data-adopt]"); if (a) { adopt(a.dataset.adopt); return; } }
   const t = e.target.closest("button"); if (!t) return;
   if (t.dataset.filter) { S.filter = t.dataset.filter; render(); }
   else if (t.dataset.pick) { S.pick[t.dataset.pick] = t.dataset.id; render(); }
