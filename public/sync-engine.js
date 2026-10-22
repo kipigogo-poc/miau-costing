@@ -11,7 +11,7 @@
 //   Menu spreadsheet: one tab per drink (tab name = drink name); one column per size; one row per ingredient.
 //     Tabs whose name starts with "_" are ignored.
 
-export const ING_TAB = "Ingredients", PREP_TAB = "House-made recipes";
+export const ING_TAB = "Ingredients", PREP_TAB = "House-made recipes", LIST_TAB = "_Ingredients";
 export const NUT = [["kcal", "kcal"], ["fat", "Fat (g)"], ["sat", "Sat. fat (g)"], ["carb", "Carbs (g)"], ["sugar", "Sugars (g)"], ["protein", "Protein (g)"], ["sodium", "Sodium (mg)"]];
 export const ING_HEAD = ["Code", "Name", "Category", "Unit", "Pack size", "Pack price (₱)", "Usable %", "Density (g per ml)", ...NUT.map(n => n[1] + " per 100"), "Note"];
 export const PREP_HEAD = ["Code", "Recipe", "Makes", "Batch ×", "Ingredient code", "Ingredient", "Amount", "Unit", "Note"];
@@ -137,7 +137,22 @@ export function modelToTabs(m) {
     ];
     menu[name] = out;
   }
+  menu[LIST_TAB] = [["Ingredient", "Code", "Unit"], ...codes.slice().sort((a, b) => String(items[a].name).localeCompare(String(items[b].name))).map(c => [items[c].name, c, items[c].unit])];
   return { ingredients: tabs, menu };
+}
+
+// Drop-downs for each tab (applied by the Sheets connector): [{ row, col, list?: [...], range?: "='Tab'!A2:A" }]
+export function dropdowns(tabs) {
+  const ing = {}, menu = {};
+  ing[ING_TAB] = [{ row: 1, col: 2, list: CATS }, { row: 1, col: 3, list: UNITS }];
+  ing[PREP_TAB] = [{ row: 1, col: 5, range: `='${ING_TAB}'!B2:B` }, { row: 1, col: 7, list: UNITS }];
+  for (const [t, rows] of Object.entries(tabs.menu)) {
+    if (t.startsWith("_")) continue;
+    const hr = rows.findIndex(r => r && r[0] === "Code"); if (hr < 0) continue;
+    const same = rows[hr].indexOf(SAME);
+    menu[t] = [{ row: hr + 1, col: 1, range: `='${LIST_TAB}'!A2:A` }, { row: hr + 1, col: 2, list: UNITS }, ...(same > 0 ? [{ row: hr + 1, col: same, list: ["Yes"] }] : [])];
+  }
+  return { ingredients: ing, menu };
 }
 function splitKey(k) { const a = k.indexOf(":"), b = k.lastIndexOf(":"); return [k.slice(0, a), k.slice(a + 1, b), k.slice(b + 1)]; }
 
@@ -174,6 +189,19 @@ export function tabsToModel(ingTabs, menuTabs, appModel = {}, baseModel = {}) {
       if (cat !== "House-made") { m[p + "packSize"] = J(nums.packSize); m[p + "packPrice"] = J(nums.packPrice); }
     });
   }
+  // Ingredient picked by name (drop-down) or by code. The name wins when it matches exactly one ingredient.
+  const byLc = {}, unitOf = {};
+  for (const c of codes) { const nm = m[`i:${c}:name`]; if (nm) { const k = JSON.parse(nm).toLowerCase(); (byLc[k] = byLc[k] || []).push(c); unitOf[c] = JSON.parse(m[`i:${c}:unit`]); } }
+  const pick = (codeRaw, nameRaw) => {
+    const code = str(codeRaw), name = str(nameRaw);
+    if (name) { const hit = byLc[name.toLowerCase()] || [];
+      if (hit.length === 1) return { code: hit[0] };
+      if (hit.length > 1) return hit.includes(code) ? { code } : { err: `Two ingredients are named "${name}". Rename one on the Ingredients tab.` };
+      if (codes.has(code)) return { code };
+      return { err: `Ingredient "${name}" isn't on the Ingredients tab. Add it there first, or pick from the drop-down.` }; }
+    if (codes.has(code)) return { code };
+    return { err: `Ingredient code ${code} isn't on the Ingredients tab.` };
+  };
   // house-made recipes
   const prep = ingTabs[PREP_TAB], recipes = {};
   if (prep) {
@@ -185,10 +213,11 @@ export function tabsToModel(ingTabs, menuTabs, appModel = {}, baseModel = {}) {
       if (Number.isNaN(mk) || Number.isNaN(bt)) r.errs.push([at, "Makes and Batch × must be numbers."]);
       if (mk != null && !Number.isNaN(mk) && r.makes == null) r.makes = mk;
       if (bt != null && !Number.isNaN(bt) && r.batch == null) r.batch = bt;
-      const ic = str(g("Ingredient code")); if (!ic) return;
+      const icRaw = str(g("Ingredient code")), inRaw = str(g("Ingredient")); if (!icRaw && !inRaw) return;
+      const pk = pick(icRaw, inRaw); if (pk.err) return r.errs.push([at, pk.err]); const ic = pk.code;
       const raw = str(g("Amount")), q = raw === "?" || raw === "" ? null : num(raw);
       if (Number.isNaN(q)) return r.errs.push([at, `Amount "${raw}" isn't a number.`]);
-      const u = str(g("Unit")).toLowerCase() || "g"; if (!UNITS.includes(u)) return r.errs.push([at, "Unit must be g, ml or pc."]);
+      const u = str(g("Unit")).toLowerCase() || unitOf[ic] || "g"; if (!UNITS.includes(u)) return r.errs.push([at, "Unit must be g, ml or pc."]);
       r.lines.push([ic, q == null ? null : r6(q), u, str(g("Note"))]);
     });
   }
@@ -224,9 +253,9 @@ export function tabsToModel(ingTabs, menuTabs, appModel = {}, baseModel = {}) {
       cols.push({ c, id: id || `new:${name}:${colName(c)}`, size, price, target, base, lines: [] });
     }
     rows.slice(hr + 1).forEach((r, i) => {
-      const code = str(r[0]); if (!code) return;
-      if (!codes.has(code)) return tabErr.push(`Row ${hr + i + 2}: ingredient code ${code} isn't on the Ingredients tab.`);
-      const unit = str(r[2]).toLowerCase() || "g"; if (!UNITS.includes(unit)) return tabErr.push(`Row ${hr + i + 2}: unit must be g, ml or pc.`);
+      if (!str(r[0]) && !str(r[1])) return;
+      const pk = pick(r[0], r[1]); if (pk.err) return tabErr.push(`Row ${hr + i + 2}: ${pk.err}`); const code = pk.code;
+      const unit = str(r[2]).toLowerCase() || unitOf[code] || "g"; if (!UNITS.includes(unit)) return tabErr.push(`Row ${hr + i + 2}: unit must be g, ml or pc.`);
       const fixed = sameC > 0 && truthy(r[sameC]), note = noteC > 0 ? str(r[noteC]) : "";
       for (const col of cols) { const raw = str(r[col.c]); if (raw === "") continue;
         const q = raw === "?" ? null : num(raw);
@@ -360,4 +389,14 @@ export function nextBase(finalModel, oldBase, skipped) {
   for (const [k, v] of Object.entries(finalModel)) if (!keep(k, finalModel)) out[k] = v;
   for (const [k, v] of Object.entries(oldBase)) if (keep(k, oldBase) || keep(k, finalModel)) out[k] = v;
   return out;
+}
+
+// What changed inside a recipe, in words: "− Vanilla syrup, + Caramel syrup, Milk 75 → 80 g"
+export function lineDiff(before, after, model) {
+  const L = v => (v ? JSON.parse(v) : []) || [], nm = c => { const v = model[`i:${c}:name`]; return v ? JSON.parse(v) : c; };
+  const a = L(before), b = L(after), out = [], used = new Set();
+  for (const x of b) { const i = a.findIndex((y, k) => !used.has(k) && y[0] === x[0]); if (i < 0) { out.push("+ " + nm(x[0]) + (x[1] != null ? ` ${x[1]} ${x[2]}` : "")); continue; }
+    used.add(i); const y = a[i]; if (y[1] !== x[1] || y[2] !== x[2]) out.push(`${nm(x[0])} ${y[1] ?? "?"} → ${x[1] ?? "?"} ${x[2]}`); }
+  a.forEach((y, k) => { if (!used.has(k)) out.push("− " + nm(y[0])); });
+  return out.length ? out.join(", ") : "order or notes changed";
 }

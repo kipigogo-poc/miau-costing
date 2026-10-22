@@ -44,7 +44,7 @@ const quiet = r => r.applied && !r.changes.length && !r.conflicts.length;
 { const st = connect(); const A = E.appToModel(st.items, st.drinks); const back = E.tabsToModel(st.sheet.ingredients, st.sheet.menu);
   const diff = Object.keys({ ...A, ...back.model }).filter(k => A[k] !== back.model[k]);
   t("Round trip app → sheets → app loses nothing", back.errors.length === 0 && diff.length === 0, `${Object.keys(A).length} values, ${diff.length} differ ${diff.slice(0, 3).join(", ")}${back.errors.length ? "; errors: " + JSON.stringify(back.errors.slice(0, 2)) : ""}`);
-  t("Menu sheet has one tab per drink", Object.keys(st.sheet.menu).length === new Set(Object.values(st.drinks).map(d => d.name || "Untitled")).size, Object.keys(st.sheet.menu).slice(0, 4).join(", ") + "…");
+  t("Menu sheet has one tab per drink", Object.keys(st.sheet.menu).filter(x => !x.startsWith("_")).length === new Set(Object.values(st.drinks).map(d => d.name || "Untitled")).size, Object.keys(st.sheet.menu).slice(0, 4).join(", ") + "…");
   const sl = tab(st, "Spanish Latte"); t("Spanish Latte tab has 3 sizes side by side", JSON.stringify(rowOf(sl, "Size (ml)").slice(3)) === "[355,473,651]", JSON.stringify(rowOf(sl, "Size (ml)").slice(3)));
   t("Sync right after connecting changes nothing", quiet(sync(st))); }
 
@@ -154,6 +154,28 @@ const quiet = r => r.applied && !r.changes.length && !r.conflicts.length;
 { const st = connect(); st.drinks["d-new"] = { name: "", baseVol: null, targetVol: null, price: null, vat: 0.12, target: 0.3, lines: [{ itemId: "", qty: null }] };
   const r = sync(st); const r2 = sync(st);
   t("A new, still-empty drink syncs without errors", r.applied && !r.errors.length && quiet(r2) && !!tab(st, "Untitled"), JSON.stringify(r.errors.concat(r2.errors)).slice(0, 160)); }
+
+// 20. ingredients picked by name from the drop-down (no code typed)
+{ const st = connect(); const tb = tab(st, "Spanish Latte"), hr = tb.findIndex(r => r[0] === "Code");
+  const milkRow = tb.find(r => r[0] === "ING-002"); milkRow[1] = "Condensed milk";          // swap via drop-down, old code left in column A
+  tb.push(["", "Sea salt", "", 1, 1, 2, "", ""]);                                             // new row: name only, unit left blank
+  const r = sync(st); const l = st.drinks["spanish-latte-12"].lines;
+  t("Picking a different ingredient name swaps it (old code ignored)", r.applied && l.some(x => x.itemId === "condensed-milk") && !l.some(x => x.itemId === "milk"), l.map(x => x.itemId).join(", "));
+  t("A row with only an ingredient name works; unit comes from the masterlist", l.some(x => x.itemId === "sea-salt" && x.unit === "g" && x.qty === 1));
+  t("…and the Code column is filled in by the sync", tab(st, "Spanish Latte").some(x => x[0] === "ING-010" && x[1] === "Sea salt"));
+  t("…next sync is quiet", quiet(sync(st))); }
+{ const st = connect(); tab(st, "Mocha Latte").push(["", "Unicorn dust", "g", 1, 1, 1, "", ""]);
+  const r = sync(st); t("An ingredient name not on the masterlist is reported", r.errors.some(e => /Unicorn dust/.test(e.msg)), r.errors[0] && r.errors[0].msg); }
+{ const st = connect(); const rows = st.sheet.ingredients[E.PREP_TAB]; const ln = rows.find(x => x[0] === "HM-001" && x[4] === "ING-010"); ln[4] = ""; ln[5] = "Salt";
+  const r = sync(st); const ss = Object.values(st.items).find(i => i.code === "HM-001");
+  t("House-made recipe line picked by name", r.applied && ss.lines.some(x => x.itemId === "salt") && !ss.lines.some(x => x.itemId === "sea-salt")); }
+{ const tabs = E.modelToTabs(E.appToModel(shop.items, shop.drinks)); const dd = E.dropdowns(tabs);
+  t("Drop-downs: list tab exists and every drink tab gets Ingredient/Unit/Same drop-downs", tabs.menu[E.LIST_TAB].length > 20 && Object.values(dd.menu).every(x => x.length === 3 && x[0].range === "='_Ingredients'!A2:A"), Object.keys(dd.menu).length + " drink tabs"); }
+
+{ const st = connect(); const m = E.appToModel(st.items, st.drinks); const before = m["d:vanilla-latte-12:lines"];
+  const arr = JSON.parse(before); arr[0] = ["ING-020", arr[0][1], arr[0][2], arr[0][3], arr[0][4]]; arr[1] = [arr[1][0], (arr[1][1] || 0) + 5, arr[1][2], arr[1][3], arr[1][4]];
+  const d = E.lineDiff(before, JSON.stringify(arr), m);
+  t("Recipe changes are described in words", /\+ Caramel syrup/.test(d) && /− Vanilla syrup/.test(d) && /→/.test(d), d); }
 
 console.log(`\n${R.filter(Boolean).length}/${R.length} sync checks passed`);
 process.exit(R.every(Boolean) ? 0 : 1);

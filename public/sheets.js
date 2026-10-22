@@ -38,7 +38,7 @@ async function readAll(id) {
 // Make the spreadsheet's tabs match: write these tabs (values only, formatting kept), delete these tabs.
 async function writeTabs(id, write, del, existingIds) {
   const reqs = [], fresh = [];
-  for (const t of Object.keys(write)) if (!(t in existingIds)) { reqs.push({ addSheet: { properties: { title: t, gridProperties: { frozenRowCount: t === E.ING_TAB || t === E.PREP_TAB ? 1 : 7, frozenColumnCount: t === E.ING_TAB || t === E.PREP_TAB ? 2 : 3 } } } }); fresh.push(t); }
+  for (const t of Object.keys(write)) if (!(t in existingIds)) { reqs.push({ addSheet: { properties: { title: t, gridProperties: { frozenRowCount: isListTab(t) ? 1 : 7, frozenColumnCount: isListTab(t) ? 2 : 3 } } } }); fresh.push(t); }
   if (reqs.length) {
     const r = await call("POST", `${API}/${id}:batchUpdate`, { requests: reqs });
     r.replies.forEach((rep, i) => { existingIds[fresh[i]] = rep.addSheet.properties.sheetId; });
@@ -54,10 +54,20 @@ async function writeTabs(id, write, del, existingIds) {
     // a spreadsheet must keep at least one tab
     if (Object.keys(existingIds).length - dels.length < 1) await call("POST", `${API}/${id}:batchUpdate`, { requests: [{ addSheet: { properties: { title: "_How to use" } } }] });
     await call("POST", `${API}/${id}:batchUpdate`, { requests: dels.map(t => ({ deleteSheet: { sheetId: existingIds[t] } })) });
+    for (const t of dels) delete existingIds[t];
   }
 }
+const isListTab = t => t === E.ING_TAB || t === E.PREP_TAB || t.startsWith("_");
+// Drop-downs: Ingredient names from the masterlist, units, categories. Re-applied on every sync (cheap, one request).
+async function applyDropdowns(id, specs, ids) {
+  const reqs = [];
+  for (const [t, list] of Object.entries(specs)) { const sheetId = ids[t]; if (sheetId == null) continue;
+    for (const d of list) reqs.push({ setDataValidation: { range: { sheetId, startRowIndex: d.row, endRowIndex: 1000, startColumnIndex: d.col, endColumnIndex: d.col + 1 },
+      rule: { condition: d.range ? { type: "ONE_OF_RANGE", values: [{ userEnteredValue: d.range }] } : { type: "ONE_OF_LIST", values: d.list.map(v => ({ userEnteredValue: v })) }, showCustomUi: true, strict: false } } }); }
+  if (reqs.length) await call("POST", `${API}/${id}:batchUpdate`, { requests: reqs });
+}
 function styleTab(sheetId, title) {
-  const isList = title === E.ING_TAB || title === E.PREP_TAB, head = isList ? 0 : 6;
+  const isList = isListTab(title), head = isList ? 0 : 6;
   return [
     { repeatCell: { range: { sheetId, startRowIndex: head, endRowIndex: head + 1 }, cell: { userEnteredFormat: { textFormat: { bold: true }, backgroundColor: { red: .953, green: .906, blue: .839 } } }, fields: "userEnteredFormat(textFormat,backgroundColor)" } },
     ...(isList ? [] : [{ repeatCell: { range: { sheetId, startRowIndex: 0, endRowIndex: 5, startColumnIndex: 0, endColumnIndex: 1 }, cell: { userEnteredFormat: { textFormat: { bold: true } } }, fields: "userEnteredFormat.textFormat" } },
@@ -73,13 +83,14 @@ async function createSheets() {
   const items = S.items, codes = E.assignCodes(items);
   for (const [id, c] of Object.entries(codes)) { items[id].code = c; save("items", id, true); }
   const model = E.appToModel(items, S.drinks), tabs = E.modelToTabs(model), shop = (ORD.settings && ORD.settings.shopName) || "MIAU";
-  const mk = async (title, t) => {
+  const dd = E.dropdowns(tabs);
+  const mk = async (title, t, kind) => {
     const r = await call("POST", API, { properties: { title }, sheets: [{ properties: { title: "_How to use" } }] });
     const ids = { "_How to use": r.sheets[0].properties.sheetId };
     await call("POST", `${API}/${r.spreadsheetId}/values:batchUpdate`, { valueInputOption: "RAW", data: [{ range: "'_How to use'!A1", values: HOWTO }] });
-    await writeTabs(r.spreadsheetId, t, [], ids); return r.spreadsheetId;
+    await writeTabs(r.spreadsheetId, t, [], ids); await applyDropdowns(r.spreadsheetId, dd[kind], ids); return r.spreadsheetId;
   };
-  const ingId = await mk(`${shop} · Ingredients`, tabs.ingredients), menuId = await mk(`${shop} · Menu`, tabs.menu);
+  const ingId = await mk(`${shop} · Ingredients`, tabs.ingredients, "ingredients"), menuId = await mk(`${shop} · Menu`, tabs.menu, "menu");
   await saveCfg({ ingId, menuId, base: model, at: Date.now(), by: window.miauUserEmail() });
 }
 
@@ -114,9 +125,12 @@ async function apply() {
   const plan = E.planWrites(F, { ingredients: p.ing.tabs, menu: p.menu.tabs }, p.read.skipped);
   if (Object.keys(plan.ingredients).length) await writeTabs(ST.cfg.ingId, plan.ingredients, [], p.ing.ids);
   if (Object.keys(plan.menuWrite).length || plan.menuDelete.length) await writeTabs(ST.cfg.menuId, plan.menuWrite, plan.menuDelete, p.menu.ids);
+  const dd = E.dropdowns(E.modelToTabs(F));
+  await applyDropdowns(ST.cfg.ingId, dd.ingredients, p.ing.ids);
+  await applyDropdowns(ST.cfg.menuId, Object.fromEntries(Object.entries(dd.menu).filter(([t]) => !p.read.skipped.has(t))), p.menu.ids);
   await saveCfg(Object.assign({}, ST.cfg, { base: E.nextBase(F, p.base, p.read.skipped), at: Date.now(), by: window.miauUserEmail() }));
   const toApp = p.m.changes.filter(c => c.from === "sheet").length, toSheet = Object.keys(plan.ingredients).length + Object.keys(plan.menuWrite).length + plan.menuDelete.length;
-  ST.done = `Synced. ${toApp} change${toApp === 1 ? "" : "s"} brought into the app, ${toSheet} sheet tab${toSheet === 1 ? "" : "s"} updated.` + (p.read.errors.length ? " Some rows had errors and were skipped (see below)." : "");
+  ST.done = !toApp && !p.m.changes.length && !p.read.errors.length ? "Everything is in sync." : `Synced. ${toApp} change${toApp === 1 ? "" : "s"} brought into the app, ${toSheet} sheet tab${toSheet === 1 ? "" : "s"} updated.` + (p.read.errors.length ? " Some rows had errors and were skipped (see below)." : "");
   ST.lastErrors = p.read.errors; ST.preview = null;
 }
 
@@ -126,7 +140,7 @@ async function run(label, fn) { ST.busy = label; ST.err = ""; ST.done = ""; draw
 
 function groupChanges(changes, model) {
   const g = {};
-  for (const c of changes) { if (c.key.endsWith(":_")) continue; const d = E.describe(c.key, model); const k = c.from + "|" + d.entity; (g[k] = g[k] || { from: c.from, entity: d.entity, kind: d.kind, items: [] }).items.push({ field: d.field, before: E.show(c.before), after: E.show(c.after), added: c.before === undefined, removed: c.after === undefined }); }
+  for (const c of changes) { if (c.key.endsWith(":_")) continue; const d = E.describe(c.key, model); const k = c.from + "|" + d.entity; (g[k] = g[k] || { from: c.from, entity: d.entity, kind: d.kind, items: [] }).items.push(c.key.endsWith(":lines") ? { field: d.field, diff: E.lineDiff(c.before, c.after, model) } : { field: d.field, before: E.show(c.before), after: E.show(c.after), added: c.before === undefined, removed: c.after === undefined }); }
   // existence-only changes (added/removed entities)
   for (const c of changes) if (c.key.endsWith(":_")) { const d = E.describe(c.key, model), k = c.from + "|" + d.entity; (g[k] = g[k] || { from: c.from, entity: d.entity, kind: d.kind, items: [] }).status = c.after === undefined ? "removed" : "added"; }
   return Object.values(g);
@@ -134,7 +148,7 @@ function groupChanges(changes, model) {
 function changeList(groups, from) {
   const gs = groups.filter(x => x.from === from); if (!gs.length) return `<p class="muted" style="margin:0">Nothing.</p>`;
   return `<ul class="sx-list">${gs.map(x => `<li><b>${esc(x.entity)}</b> ${x.status === "added" ? '<span class="badge ok">new</span>' : x.status === "removed" ? '<span class="badge bad">removed</span>' : ""}
-    ${x.status ? "" : `<span class="muted">${x.items.map(i => `${esc(i.field)}: ${esc(i.before)} → <b>${esc(i.after)}</b>`).join(" · ")}</span>`}</li>`).join("")}</ul>`;
+    ${x.status ? "" : `<span class="muted">${x.items.map(i => i.diff ? `${esc(i.field)}: <b>${esc(i.diff)}</b>` : `${esc(i.field)}: ${esc(i.before)} → <b>${esc(i.after)}</b>`).join(" · ")}</span>`}</li>`).join("")}</ul>`;
 }
 
 function draw() {
@@ -191,7 +205,7 @@ document.addEventListener("click", async e => {
     return run("Connecting", async () => { await readAll(a); await readAll(b); await saveCfg({ ingId: a, menuId: b, base: {}, at: 0, by: "" }); await check(); }); }
   if (t.id === "sx-check") return run("Reading both sheets", check);
   if (t.id === "sx-cancel") { ST.preview = null; return draw(); }
-  if (t.id === "sx-apply") { if (!ST.preview.m.changes.length) { ST.preview = null; ST.done = "Everything is already in sync."; await saveCfg(Object.assign({}, ST.cfg, { at: Date.now(), by: window.miauUserEmail() })); return draw(); } return run("Applying changes", apply); }
+  if (t.id === "sx-apply") return run("Applying changes", apply);
   if (t.id === "sx-unlink") { await saveCfg({ ingId: null, menuId: null, base: {}, at: 0, by: "" }); ST.done = "Disconnected."; return draw(); }
   if (t.dataset.sxPick) { ST.resolve[t.dataset.k] = t.dataset.sxPick; recompute(); return draw(); }
   if (t.dataset.sxAll) { for (const k of ST.preview.m.conflicts) ST.resolve[k.key] = t.dataset.sxAll; recompute(); return draw(); }
