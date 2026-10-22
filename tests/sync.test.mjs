@@ -177,5 +177,27 @@ const quiet = r => r.applied && !r.changes.length && !r.conflicts.length;
   const d = E.lineDiff(before, JSON.stringify(arr), m);
   t("Recipe changes are described in words", /\+ Caramel syrup/.test(d) && /− Vanilla syrup/.test(d) && /→/.test(d), d); }
 
+// 21. one-file layout: Ingredients, House-made recipes and every drink tab in the same spreadsheet
+{ const st = { items: clone(shop.items), drinks: clone(shop.drinks), base: {} };
+  for (const [id, c] of Object.entries(E.assignCodes(st.items))) st.items[id].code = c;
+  const t0 = E.modelToTabs(E.appToModel(st.items, st.drinks), { single: true }); st.book = Object.assign({ "_How to use": [["x"]] }, t0.ingredients, t0.menu); st.base = E.appToModel(st.items, st.drinks);
+  const one = (resolve = {}) => { const sp = E.splitTabs(st.book), A = E.appToModel(st.items, st.drinks), read = E.tabsToModel(sp.ingredients, sp.menu, A, st.base), m = E.merge(st.base, A, read.model, read.bad, resolve);
+    const w = E.modelToApp(m.result, A, st.items, st.drinks);
+    for (const [id, d] of Object.entries(w.items)) if (d === null) delete st.items[id]; else st.items[id] = d;
+    for (const [id, d] of Object.entries(w.drinks)) if (d === null) delete st.drinks[id]; else st.drinks[id] = d;
+    const F = E.appToModel(st.items, st.drinks), plan = E.planWrites(F, sp, read.skipped, { single: true });
+    Object.assign(st.book, plan.ingredients, plan.menuWrite); for (const k of plan.menuDelete) delete st.book[k];
+    st.base = E.nextBase(F, st.base, read.skipped); return { m, read, plan }; };
+  const r0 = one();
+  t("One file: has Ingredients, House-made recipes and a tab per drink, no helper list tab", st.book["Ingredients"] && st.book["House-made recipes"] && st.book["Spanish Latte"] && !st.book["_Ingredients"] && !r0.m.changes.length, Object.keys(st.book).slice(0, 5).join(", ") + "…");
+  const dd = E.dropdowns(t0, { single: true });
+  t("One file: drink drop-downs read the Ingredients tab directly", Object.values(dd.menu).every(x => x[0].range === "='Ingredients'!B2:B"));
+  st.book["Ingredients"].find(r => r[0] === "ING-002")[5] = 101; st.book["Mocha Latte"].find(r => r[0] === "ING-017")[1] = "Caramel sauce";
+  delete st.book["Milo Dino"]; st.drinks["iced-americano-16"].price = 133;
+  const r1 = one();
+  t("One file: sheet edits, a deleted drink tab and an app edit all sync", st.items.milk.packPrice === 101 && st.drinks["mocha-latte-12"].lines.some(l => l.itemId === "caramel-sauce") && !Object.values(st.drinks).some(d => d.name === "Milo Dino") && st.book["Iced Americano"].find(r => r[0] === "Price (₱)")[4] === 133);
+  t("One file: Ingredients and House-made tabs are never deleted", !r1.plan.menuDelete.includes("Ingredients") && !r1.plan.menuDelete.includes("House-made recipes") && st.book["Ingredients"] && st.book["House-made recipes"]);
+  t("One file: next sync is quiet", !one().m.changes.length); }
+
 console.log(`\n${R.filter(Boolean).length}/${R.length} sync checks passed`);
 process.exit(R.every(Boolean) ? 0 : 1);

@@ -103,7 +103,7 @@ export function appToModel(items, drinks) {
 }
 
 // ---------- model → SHEET values ----------
-export function modelToTabs(m) {
+export function modelToTabs(m, opts = {}) {
   const items = {}, drinks = {};
   for (const [k, v] of Object.entries(m)) {
     const [t, id, f] = splitKey(k); const val = JSON.parse(v);
@@ -137,12 +137,12 @@ export function modelToTabs(m) {
     ];
     menu[name] = out;
   }
-  menu[LIST_TAB] = [["Ingredient", "Code", "Unit"], ...codes.slice().sort((a, b) => String(items[a].name).localeCompare(String(items[b].name))).map(c => [items[c].name, c, items[c].unit])];
+  if (!opts.single) menu[LIST_TAB] = [["Ingredient", "Code", "Unit"], ...codes.slice().sort((a, b) => String(items[a].name).localeCompare(String(items[b].name))).map(c => [items[c].name, c, items[c].unit])];
   return { ingredients: tabs, menu };
 }
 
 // Drop-downs for each tab (applied by the Sheets connector): [{ row, col, list?: [...], range?: "='Tab'!A2:A" }]
-export function dropdowns(tabs) {
+export function dropdowns(tabs, opts = {}) {
   const ing = {}, menu = {};
   ing[ING_TAB] = [{ row: 1, col: 2, list: CATS }, { row: 1, col: 3, list: UNITS }];
   ing[PREP_TAB] = [{ row: 1, col: 5, range: `='${ING_TAB}'!B2:B` }, { row: 1, col: 7, list: UNITS }];
@@ -150,7 +150,7 @@ export function dropdowns(tabs) {
     if (t.startsWith("_")) continue;
     const hr = rows.findIndex(r => r && r[0] === "Code"); if (hr < 0) continue;
     const same = rows[hr].indexOf(SAME);
-    menu[t] = [{ row: hr + 1, col: 1, range: `='${LIST_TAB}'!A2:A` }, { row: hr + 1, col: 2, list: UNITS }, ...(same > 0 ? [{ row: hr + 1, col: same, list: ["Yes"] }] : [])];
+    menu[t] = [{ row: hr + 1, col: 1, range: opts.single ? `='${ING_TAB}'!B2:B` : `='${LIST_TAB}'!A2:A` }, { row: hr + 1, col: 2, list: UNITS }, ...(same > 0 ? [{ row: hr + 1, col: same, list: ["Yes"] }] : [])];
   }
   return { ingredients: ing, menu };
 }
@@ -372,8 +372,8 @@ export function tabOf(key, model) {
 
 // What to write to each spreadsheet so it matches the final model. Tabs with errors (skipped) are left alone.
 // current: { ingredients: {title: rows}, menu: {title: rows} } as read at the start of the sync.
-export function planWrites(finalModel, current, skipped) {
-  const want = modelToTabs(finalModel), norm = rows => JSON.stringify((rows || []).map(r => { const a = (r || []).map(x => x === null || x === undefined ? "" : x); while (a.length && a[a.length - 1] === "") a.pop(); return a; }).filter((r, i, arr) => r.length || arr.slice(i).some(x => x.length)));
+export function planWrites(finalModel, current, skipped, opts = {}) {
+  const want = modelToTabs(finalModel, opts), norm = rows => JSON.stringify((rows || []).map(r => { const a = (r || []).map(x => x === null || x === undefined ? "" : x); while (a.length && a[a.length - 1] === "") a.pop(); return a; }).filter((r, i, arr) => r.length || arr.slice(i).some(x => x.length)));
   const ing = {}, menuWrite = {}, menuDelete = [];
   for (const [t, rows] of Object.entries(want.ingredients)) if (!skipped.has("ing:" + t) && norm(rows) !== norm(current.ingredients[t])) ing[t] = rows;
   for (const [t, rows] of Object.entries(want.menu)) if (!skipped.has(t) && norm(rows) !== norm(current.menu[t])) menuWrite[t] = rows;
@@ -399,4 +399,11 @@ export function lineDiff(before, after, model) {
     used.add(i); const y = a[i]; if (y[1] !== x[1] || y[2] !== x[2]) out.push(`${nm(x[0])} ${y[1] ?? "?"} → ${x[1] ?? "?"} ${x[2]}`); }
   a.forEach((y, k) => { if (!used.has(k)) out.push("− " + nm(y[0])); });
   return out.length ? out.join(", ") : "order or notes changed";
+}
+
+// One-file layout: split the spreadsheet's tabs into the Ingredients group and the drink tabs.
+export function splitTabs(all) {
+  const ing = {}, menu = {};
+  for (const [t, rows] of Object.entries(all)) { if (t === ING_TAB || t === PREP_TAB) ing[t] = rows; else menu[t] = rows; }
+  return { ingredients: ing, menu };
 }

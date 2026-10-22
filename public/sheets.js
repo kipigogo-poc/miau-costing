@@ -75,24 +75,25 @@ function styleTab(sheetId, title) {
     { autoResizeDimensions: { dimensions: { sheetId, dimension: "COLUMNS", startIndex: 0, endIndex: isList ? 16 : 12 } } }
   ];
 }
-const HOWTO = [["How to use these sheets"], [""], ["• Edit prices, amounts and recipes here or in the MIAU staff app. Then press Sync in the app (Account → Google Sheets)."],
+const HOWTO = [["How to use these sheets"], [""], ["• Edit prices, amounts and recipes here or in the MIAU staff app. Then press Sync in the app (Account → Google Sheets)."], ["• Pick ingredients from the drop-down in the Ingredient column. The Code fills in by itself on the next sync."],
   ["• Ingredients: one row per item. The Code (e.g. ING-001) links everything. Don't reuse a code."], ["• Menu: one tab per drink, one column per size. Leave a cell blank if a size doesn't use that ingredient. Type ? if the amount is still unknown."],
   ["• New drink: duplicate a tab and rename it. New size: add a column like \"828 ml\" before \"Same in every size\"."], ["• The App ID row is filled in by the app. Don't edit it."], ["• Tabs whose name starts with _ (like this one) are ignored."]];
 
-async function createSheets() {
+// One spreadsheet holds everything: _How to use, Ingredients, House-made recipes, then one tab per drink.
+async function createSheet() {
   const items = S.items, codes = E.assignCodes(items);
   for (const [id, c] of Object.entries(codes)) { items[id].code = c; save("items", id, true); }
-  const model = E.appToModel(items, S.drinks), tabs = E.modelToTabs(model), shop = (ORD.settings && ORD.settings.shopName) || "MIAU";
-  const dd = E.dropdowns(tabs);
-  const mk = async (title, t, kind) => {
-    const r = await call("POST", API, { properties: { title }, sheets: [{ properties: { title: "_How to use" } }] });
-    const ids = { "_How to use": r.sheets[0].properties.sheetId };
-    await call("POST", `${API}/${r.spreadsheetId}/values:batchUpdate`, { valueInputOption: "RAW", data: [{ range: "'_How to use'!A1", values: HOWTO }] });
-    await writeTabs(r.spreadsheetId, t, [], ids); await applyDropdowns(r.spreadsheetId, dd[kind], ids); return r.spreadsheetId;
-  };
-  const ingId = await mk(`${shop} · Ingredients`, tabs.ingredients, "ingredients"), menuId = await mk(`${shop} · Menu`, tabs.menu, "menu");
-  await saveCfg({ ingId, menuId, base: model, at: Date.now(), by: window.miauUserEmail() });
+  const model = E.appToModel(items, S.drinks), tabs = E.modelToTabs(model, { single: true }), shop = (ORD.settings && ORD.settings.shopName) || "MIAU";
+  const dd = E.dropdowns(tabs, { single: true });
+  const r = await call("POST", API, { properties: { title: `${shop} · Costing` }, sheets: [{ properties: { title: "_How to use" } }] });
+  const id = r.spreadsheetId, ids = { "_How to use": r.sheets[0].properties.sheetId };
+  await call("POST", `${API}/${id}/values:batchUpdate`, { valueInputOption: "RAW", data: [{ range: "'_How to use'!A1", values: HOWTO }] });
+  await writeTabs(id, Object.assign({}, tabs.ingredients, tabs.menu), [], ids);
+  await applyDropdowns(id, Object.assign({}, dd.ingredients, dd.menu), ids);
+  await saveCfg({ sheetId: id, base: model, at: Date.now(), by: window.miauUserEmail() });
 }
+const single = c => !!(c && c.sheetId);
+const connected = c => !!(c && (c.sheetId || (c.ingId && c.menuId)));
 
 // ---------- config (shop settings doc "sync", staff only) ----------
 let cfgSub = null;
@@ -106,7 +107,9 @@ async function saveCfg(c) { ST.cfg = c; await S.db.collection("settings").doc("s
 async function check() {
   const c = ST.cfg, codes = E.assignCodes(S.items);
   for (const [id, code] of Object.entries(codes)) { S.items[id].code = code; save("items", id, true); }
-  const [ing, menu] = await Promise.all([readAll(c.ingId), readAll(c.menuId)]);
+  let ing, menu;
+  if (single(c)) { const all = await readAll(c.sheetId), sp = E.splitTabs(all.tabs); ing = { tabs: sp.ingredients, ids: all.ids }; menu = { tabs: sp.menu, ids: all.ids }; }
+  else [ing, menu] = await Promise.all([readAll(c.ingId), readAll(c.menuId)]);
   const A = E.appToModel(S.items, S.drinks), base = c.base || {};
   const read = E.tabsToModel(ing.tabs, menu.tabs, A, base);
   ST.preview = { ing, menu, A, read, base };
@@ -122,16 +125,33 @@ async function apply() {
   for (const [id, d] of Object.entries(w.items)) if (d === null) remove("items", id); else { S.items[id] = d; save("items", id, true); }
   for (const [id, d] of Object.entries(w.drinks)) if (d === null) remove("drinks", id); else { S.drinks[id] = d; save("drinks", id, true); }
   const F = E.appToModel(S.items, S.drinks);
-  const plan = E.planWrites(F, { ingredients: p.ing.tabs, menu: p.menu.tabs }, p.read.skipped);
-  if (Object.keys(plan.ingredients).length) await writeTabs(ST.cfg.ingId, plan.ingredients, [], p.ing.ids);
-  if (Object.keys(plan.menuWrite).length || plan.menuDelete.length) await writeTabs(ST.cfg.menuId, plan.menuWrite, plan.menuDelete, p.menu.ids);
-  const dd = E.dropdowns(E.modelToTabs(F));
-  await applyDropdowns(ST.cfg.ingId, dd.ingredients, p.ing.ids);
-  await applyDropdowns(ST.cfg.menuId, Object.fromEntries(Object.entries(dd.menu).filter(([t]) => !p.read.skipped.has(t))), p.menu.ids);
+  const one = single(ST.cfg), opts = { single: one };
+  const plan = E.planWrites(F, { ingredients: p.ing.tabs, menu: p.menu.tabs }, p.read.skipped, opts);
+  const dd = E.dropdowns(E.modelToTabs(F, opts), opts), ddMenu = Object.fromEntries(Object.entries(dd.menu).filter(([t]) => !p.read.skipped.has(t)));
+  if (one) {
+    const write = Object.assign({}, plan.ingredients, plan.menuWrite);
+    if (Object.keys(write).length || plan.menuDelete.length) await writeTabs(ST.cfg.sheetId, write, plan.menuDelete, p.ing.ids);
+    await applyDropdowns(ST.cfg.sheetId, Object.assign({}, dd.ingredients, ddMenu), p.ing.ids);
+  } else {
+    if (Object.keys(plan.ingredients).length) await writeTabs(ST.cfg.ingId, plan.ingredients, [], p.ing.ids);
+    if (Object.keys(plan.menuWrite).length || plan.menuDelete.length) await writeTabs(ST.cfg.menuId, plan.menuWrite, plan.menuDelete, p.menu.ids);
+    await applyDropdowns(ST.cfg.ingId, dd.ingredients, p.ing.ids); await applyDropdowns(ST.cfg.menuId, ddMenu, p.menu.ids);
+  }
   await saveCfg(Object.assign({}, ST.cfg, { base: E.nextBase(F, p.base, p.read.skipped), at: Date.now(), by: window.miauUserEmail() }));
   const toApp = p.m.changes.filter(c => c.from === "sheet").length, toSheet = Object.keys(plan.ingredients).length + Object.keys(plan.menuWrite).length + plan.menuDelete.length;
   ST.done = !toApp && !p.m.changes.length && !p.read.errors.length ? "Everything is in sync." : `Synced. ${toApp} change${toApp === 1 ? "" : "s"} brought into the app, ${toSheet} sheet tab${toSheet === 1 ? "" : "s"} updated.` + (p.read.errors.length ? " Some rows had errors and were skipped (see below)." : "");
   ST.lastErrors = p.read.errors; ST.preview = null;
+  if (ST.combinePending && !p.read.errors.length) { ST.combinePending = false; await createSheet(); ST.done = "Synced, then moved everything into one file. Your old Ingredients and Menu files are no longer used; you can delete them in Google Drive."; }
+}
+
+// Move from the old two-file setup to one file: sync first, then build the single file from the app's data.
+async function combine() {
+  await check(); const p = ST.preview;
+  if (p.m.conflicts.length || p.problems.length || p.m.changes.length || p.read.errors.length) {
+    ST.combinePending = true; return;     // show the preview; after Apply, combine runs
+  }
+  ST.preview = null; await createSheet();
+  ST.done = "Done. Everything is now in one file. Your old Ingredients and Menu files are no longer used; you can delete them in Google Drive.";
 }
 
 // ---------- UI ----------
@@ -158,18 +178,20 @@ function draw() {
   const head = `<div class="ph"><div><h1>Google Sheets</h1></div></div>`;
   const msg = (ST.err ? `<div class="card sx-msg bad">${esc(ST.err)}</div>` : "") + (ST.done ? `<div class="card sx-msg ok">${esc(ST.done)}</div>` : "") + (busy ? `<div class="card sx-msg">${esc(busy)}…</div>` : "");
   if (!ST.loaded) { view.innerHTML = head + `<div class="empty">Loading…</div>`; return; }
-  if (!c || !c.ingId) {
+  if (!connected(c)) {
     view.innerHTML = head + msg + `<div class="card"><div class="card-b sx">
-      <p>Keep your ingredients and menu in two Google Sheets and edit them there or here. <b>Sync</b> brings changes both ways and asks you when the same thing was changed in both places.</p>
-      <div class="sx-row"><button class="btn primary" id="sx-create" ${busy ? "disabled" : ""}>Create the 2 sheets from my data</button></div>
-      <details class="sx-adv"><summary>Already have the sheets? Connect them</summary>
-        <label class="fld"><span>Ingredients sheet link</span><input class="in" id="sx-ing" placeholder="https://docs.google.com/spreadsheets/d/…"></label>
-        <label class="fld"><span>Menu sheet link</span><input class="in" id="sx-menu" placeholder="https://docs.google.com/spreadsheets/d/…"></label>
+      <p>Keep your ingredients, house-made recipes and every drink in one Google Sheet, and edit them there or here. <b>Sync</b> brings changes both ways and asks you when the same thing was changed in both places.</p>
+      <div class="sx-row"><button class="btn primary" id="sx-create" ${busy ? "disabled" : ""}>Create the sheet from my data</button></div>
+      <details class="sx-adv"><summary>Already have the sheet? Connect it</summary>
+        <label class="fld"><span>Sheet link</span><input class="in" id="sx-one" placeholder="https://docs.google.com/spreadsheets/d/…"></label>
         <button class="btn" id="sx-link" ${busy ? "disabled" : ""}>Connect</button></details>
       <p class="faint" style="font-size:13px">Google will ask once for permission to use Google Sheets with your account.</p></div></div>`;
     return;
   }
-  const links = `<div class="sx-row"><a class="btn" href="${sheetUrl(c.ingId)}" target="_blank" rel="noopener">Open Ingredients sheet ↗</a><a class="btn" href="${sheetUrl(c.menuId)}" target="_blank" rel="noopener">Open Menu sheet ↗</a></div>`;
+  const links = single(c) ? `<div class="sx-row"><a class="btn" href="${sheetUrl(c.sheetId)}" target="_blank" rel="noopener">Open the Google Sheet ↗</a></div>`
+    : `<div class="sx-row"><a class="btn" href="${sheetUrl(c.ingId)}" target="_blank" rel="noopener">Open Ingredients sheet ↗</a><a class="btn" href="${sheetUrl(c.menuId)}" target="_blank" rel="noopener">Open Menu sheet ↗</a></div>
+      <div class="sx-err" style="background:var(--accent-soft);color:var(--text)"><b>New: keep everything in one file.</b> This syncs first (so no edits in your sheets are lost), then makes one sheet with Ingredients, House-made recipes and a tab per drink.
+      <div class="sx-row" style="margin-top:8px"><button class="btn primary sm" id="sx-combine" ${busy ? "disabled" : ""}>Combine into one file</button></div></div>`;
   const status = `<p class="muted" style="margin:0">Last synced ${ago(c.at)}${c.by ? " by " + esc(c.by) : ""}.</p>`;
   if (!p) {
     view.innerHTML = head + msg + `<div class="card"><div class="card-b sx">${status}${links}
@@ -187,6 +209,7 @@ function draw() {
       <div class="sx-row"><button class="btn sm" data-sx-pick="app" data-k="${esc(k.key)}">Keep app: ${esc(E.show(k.app))}</button><button class="btn sm" data-sx-pick="sheet" data-k="${esc(k.key)}">Use Sheets: ${esc(E.show(k.sheet))}</button></div></li>`; }).join("")}</ul>
       <div class="sx-row"><button class="btn ghost sm" data-sx-all="app">Keep app for all</button><button class="btn ghost sm" data-sx-all="sheet">Use Sheets for all</button></div></div></div>` : "";
   view.innerHTML = head + msg + `
+    ${ST.combinePending ? `<div class="card sx-msg">First, sync these changes. After you tap Apply, everything moves into one file.</div>` : ""}
     ${p.read.errors.length ? `<div class="card sx-err"><b>${p.read.errors.length} problem${p.read.errors.length > 1 ? "s" : ""} in Sheets. These rows/tabs are skipped and left untouched until fixed:</b><ul>${p.read.errors.map(e => `<li>${esc(e.where)}: ${esc(e.msg)}</li>`).join("")}</ul></div>` : ""}
     ${p.problems.length ? `<div class="card sx-err"><b>Can't sync yet:</b><ul>${p.problems.map(x => `<li>${esc(x)}</li>`).join("")}</ul><p class="faint" style="margin:6px 0 0;font-size:13px">Remove it from those recipes first, or put the ingredient back in the sheet.</p></div>` : ""}
     ${confl}
@@ -199,14 +222,15 @@ window.renderSheets = draw;
 
 document.addEventListener("click", async e => {
   const t = e.target.closest("button"); if (!t || S.view !== "sheets") return;
-  if (t.id === "sx-create") return run("Creating your sheets", createSheets);
-  if (t.id === "sx-link") { const a = idFrom($("#sx-ing").value), b = idFrom($("#sx-menu").value);
-    if (!a || !b) { ST.err = "Paste both sheet links."; return draw(); }
-    return run("Connecting", async () => { await readAll(a); await readAll(b); await saveCfg({ ingId: a, menuId: b, base: {}, at: 0, by: "" }); await check(); }); }
-  if (t.id === "sx-check") return run("Reading both sheets", check);
-  if (t.id === "sx-cancel") { ST.preview = null; return draw(); }
+  if (t.id === "sx-create") return run("Creating your sheet", createSheet);
+  if (t.id === "sx-combine") return run("Syncing, then combining into one file", combine);
+  if (t.id === "sx-link") { const a = idFrom($("#sx-one").value);
+    if (!a) { ST.err = "Paste the sheet link."; return draw(); }
+    return run("Connecting", async () => { await readAll(a); await saveCfg({ sheetId: a, base: {}, at: 0, by: "" }); await check(); }); }
+  if (t.id === "sx-check") return run("Reading the sheet", check);
+  if (t.id === "sx-cancel") { ST.preview = null; ST.combinePending = false; return draw(); }
   if (t.id === "sx-apply") return run("Applying changes", apply);
-  if (t.id === "sx-unlink") { await saveCfg({ ingId: null, menuId: null, base: {}, at: 0, by: "" }); ST.done = "Disconnected."; return draw(); }
+  if (t.id === "sx-unlink") { await saveCfg({ sheetId: null, ingId: null, menuId: null, base: {}, at: 0, by: "" }); ST.done = "Disconnected."; return draw(); }
   if (t.dataset.sxPick) { ST.resolve[t.dataset.k] = t.dataset.sxPick; recompute(); return draw(); }
   if (t.dataset.sxAll) { for (const k of ST.preview.m.conflicts) ST.resolve[k.key] = t.dataset.sxAll; recompute(); return draw(); }
 });
