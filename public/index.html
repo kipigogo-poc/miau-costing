@@ -153,6 +153,12 @@ tr.click{cursor:pointer} tr.click:hover td{background:var(--sunken)}
 .econ .row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-top:1px solid var(--border)}
 .econ .row:first-of-type{border-top:0}
 .econ .row .in{width:120px}
+.linkbtn{border:0;background:none;color:var(--accent);font:inherit;font-weight:700;cursor:pointer;padding:0 0 0 6px}
+#pc-box{padding:8px 0 4px;display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--border)}
+#pc-box .pc-r{display:flex;gap:6px;align-items:center}
+#pc-box .pc-r .in{flex:1;min-width:0}
+#pc-box .pc-r .unitwrap{width:110px;flex:none}
+#pc-box p{margin:0;font-size:12px;color:var(--muted)}
 .meter{height:6px;border-radius:3px;background:var(--sunken);position:relative;margin:4px 0 2px}
 .meter span{position:absolute;inset:0 auto 0 0;border-radius:3px;background:var(--ok)}
 .meter.over span{background:var(--bad)}
@@ -444,8 +450,12 @@ function recipeNutrition(lines, items, depth, f){
   }
   return {total,missing};
 }
+// shop-wide costs added to every cup (e.g. online ordering server ₱1); set in the app, saved in settings/costing
+let PERCUP=[];
+function perCupTotal(){return PERCUP.reduce((a,x)=>a+(+x.amount>0?+x.amount:0),0);}
 function drinkCalc(d, items){
   const r=recipeCost(d.lines, items, 0, scaleOf(d)), vat=+d.vat||0, price=+d.price, target=+d.target;
+  r.extra=perCupTotal(); if((d.lines||[]).some(l=>l.itemId)) r.total+=r.extra; else r.extra=0;
   const net=price>0?price/(1+vat):null;
   return Object.assign(r,{net,
     costPct: net? r.total/net : null,
@@ -656,6 +666,8 @@ function renderDetailM(kind){
     <div class="card econ"><div class="card-b">
       <div class="faint" style="font-size:12px;font-weight:500">Cost per cup</div>
       <div class="big num" data-out="total"></div>
+      <div class="row"><span class="muted">Per-cup extras <button class="linkbtn" id="pc-edit">Edit</button></span><b class="num" data-out="extra"></b></div>
+      <div id="pc-box" hidden></div>
       <div class="row"><span class="muted">Price</span><div class="unitwrap pre" style="width:130px"><input class="in num" id="d-price" data-d="price" type="number" step="any" min="0" inputmode="decimal" value="${d.price??""}" placeholder="0.00"><b>₱</b></div></div>
       <div class="row"><span class="muted">Profit</span><b class="num" data-out="gp"></b></div>
       <div class="row" style="display:block"><div style="display:flex;justify-content:space-between"><span class="muted">Cost %</span><b class="num" data-out="pct"></b></div>
@@ -723,9 +735,10 @@ function recompute(){
   if(c.kind==="drink"){
     fo.textContent=f!==1?`Amounts × ${f.toFixed(3)} for a ${+(+d.targetVol).toFixed(0)} ml cup`:"";
     o("gp").textContent=peso(r.gp); o("pct").textContent=pct(r.costPct);
+    const ex=o("extra"); if(ex){ex.textContent=peso(r.extra);ex.title=PERCUP.filter(x=>+x.amount>0).map(x=>`${x.name}: ${peso(+x.amount)}`).join("\n");}
     const s=status(d,r), over=s.k==="bad";
     o("badge").innerHTML=`<span class="badge ${s.k}">${s.t}</span>`;
-    o("apply").innerHTML=(r.suggested&&r.total>0&&s.k!=="warn"&&(s.k==="bad"||s.t==="No price"))?`<button class="btn sm" id="apply-price" data-price="${r.suggested.toFixed(2)}">Use ${peso(r.suggested)}</button>`:(r.suggested&&r.total>0&&s.k!=="warn"?`<span class="faint num" style="font-size:12px">Target ${peso(r.suggested)}</span>`:"");
+    o("apply").innerHTML=(r.suggested&&r.total>0&&s.k!=="warn"&&(s.k==="bad"||s.t==="No price"))?`<button class="btn sm" id="apply-price" data-price="${(Math.ceil(r.suggested*100-1e-9)/100).toFixed(2)}">Use ${peso(Math.ceil(r.suggested*100-1e-9)/100)}</button>`:(r.suggested&&r.total>0&&s.k!=="warn"?`<span class="faint num" style="font-size:12px">Target ${peso(r.suggested)}</span>`:"");
     const m=o("meter"); m.className="meter"+(over?" over":""); m.querySelector("span").style.width=Math.min(100,(r.costPct||0)*100)+"%"; m.querySelector("i").style.left=Math.min(100,(+d.target||0)*100)+"%";
     const nu=recipeNutrition(d.lines,S.items,0,f); fillNut(nu.total,nu.missing,1);
   } else {
@@ -876,10 +889,33 @@ function applySnap(col,snap){
   const db=window.claude&&window.claude.use?await window.claude.use("db"):null;
   if(!db){S.loaded.items=S.loaded.drinks=true;toastErr("Not saving in this view");render();return;}
   S.db=db;
+  // per-cup extras (shop-wide); first time: ₱1 for the online ordering server
+  db.collection("settings").doc("costing").onSnapshot(d=>{
+    if(!d.exists){PERCUP=[{name:"Online ordering (server)",amount:1}];db.collection("settings").doc("costing").set({perCup:PERCUP}).catch(()=>{});}
+    else PERCUP=Array.isArray(d.data().perCup)?d.data().perCup:[];
+    if(editing()) pendingRender=true; else render();
+  },()=>{});
   for(const col of ["items","drinks"]){
     db.collection(col).onSnapshot(s=>applySnap(col,s),err=>{S.loaded[col]=true;if(err&&err.code==="revoked")S.readonly=true;else toastErr("Reload to reconnect");render();});
   }
 })();
+
+/* ---------- per-cup extras editor (in a drink's cost card) ---------- */
+function pcBox(){
+  const b=$("#pc-box"); if(!b) return;
+  b.innerHTML=`<p>Added to the cost of every drink, per cup.</p>${PERCUP.map((x,i)=>`<div class="pc-r"><input class="in" data-pc="${i}" data-f="name" value="${esc(x.name)}" placeholder="e.g. Online ordering"><div class="unitwrap pre"><input class="in num" data-pc="${i}" data-f="amount" type="number" step="any" min="0" inputmode="decimal" value="${x.amount??""}"><b>₱</b></div><button class="icon-btn" data-pc-del="${i}" aria-label="Remove">✕</button></div>`).join("")}
+    <div><button class="btn sm" id="pc-add">+ Add extra</button></div>`;
+}
+let pcT=null;
+function pcSave(){clearTimeout(pcT);pcT=setTimeout(()=>{if(S.db)S.db.collection("settings").doc("costing").set({perCup:PERCUP.map(x=>({name:String(x.name||"").slice(0,60),amount:+x.amount>0?+x.amount:0}))}).catch(()=>toastErr("Not saved"));},400);}
+document.addEventListener("click",e=>{
+  const t=e.target.closest("button"); if(!t) return;
+  if(t.id==="pc-edit"){const b=$("#pc-box");b.hidden=!b.hidden;if(!b.hidden)pcBox();return;}
+  if(t.id==="pc-add"){PERCUP.push({name:"",amount:null});pcBox();pcSave();recompute();const ins=document.querySelectorAll('#pc-box [data-f="name"]');ins[ins.length-1]?.focus();return;}
+  if(t.dataset.pcDel!=null){PERCUP.splice(+t.dataset.pcDel,1);pcBox();pcSave();recompute();return;}
+});
+document.addEventListener("input",e=>{const el=e.target;if(el.dataset.pc==null)return;const x=PERCUP[+el.dataset.pc];if(!x)return;
+  x[el.dataset.f]=el.dataset.f==="amount"?(el.value===""?null:+el.value):el.value;pcSave();recompute();});
 
 /* ================= desktop layouts (≥901px). Phone layouts above are untouched. ================= */
 const DESK_MQ=window.matchMedia("(min-width:901px)");
@@ -1012,7 +1048,7 @@ function renderDetailD(kind){
     <label class="fld"><span>Batch ×</span><input class="in num" id="p-mult" data-d="batchMult" type="number" step="any" min="0" inputmode="decimal" value="${d.batchMult??""}" placeholder="1"></label>
     <label class="fld"><span>Usable</span><div class="unitwrap"><input class="in num" id="p-use" data-d="yield" data-pct type="number" step="any" min="1" max="100" inputmode="decimal" value="${d.yield==null||d.yield===""?"":+(d.yield*100).toFixed(2)}" placeholder="100"><b>%</b></div></label>`;
   const strip=isD?`
-    <div class="card kpi"><div class="k">Cost per cup</div><div class="v num" data-out="total"></div><div class="s" data-out="factor"></div></div>
+    <div class="card kpi"><div class="k">Cost per cup</div><div class="v num" data-out="total"></div><div class="s">incl. <span data-out="extra"></span> extras <button class="linkbtn" id="pc-edit">Edit</button></div><div class="s" data-out="factor"></div></div>
     <div class="card kpi"><div class="k">Price</div><div class="unitwrap pre" style="margin-top:6px"><input class="in num kpi-in" id="d-price" data-d="price" type="number" step="any" min="0" inputmode="decimal" value="${d.price??""}" placeholder="0.00"><b>₱</b></div></div>
     <div class="card kpi"><div class="k">Profit</div><div class="v num" data-out="gp"></div><div class="s">after VAT</div></div>
     <div class="card kpi"><div class="k">Cost %</div><div class="v num" data-out="pct"></div><div class="meter" data-out="meter"><span></span><i></i></div></div>
@@ -1028,6 +1064,7 @@ function renderDetailD(kind){
     <div class="toolbar">${isD?`<button class="btn" id="dup">Duplicate</button>`:""}<button class="btn danger" id="del">Delete</button></div>
   </div>
   <div class="kpis ${isD?"five":"three"}">${strip}</div>
+  ${isD?`<div id="pc-box" class="card" hidden style="padding:12px 16px;margin:-4px 0 16px;max-width:520px"></div>`:""}
   <div class="dgrid">
     <div class="card rt">
       <div class="card-h"><h2>Recipe</h2><span class="muted" data-out="count" style="font-size:12px"></span></div>
