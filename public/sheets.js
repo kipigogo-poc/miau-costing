@@ -156,7 +156,12 @@ async function combine() {
 
 // ---------- UI ----------
 const ago = t => { if (!t) return "never"; const s = (Date.now() - t) / 1000; return s < 60 ? "just now" : s < 3600 ? Math.round(s / 60) + " min ago" : s < 86400 ? Math.round(s / 3600) + " h ago" : new Date(t).toLocaleDateString(); };
-async function run(label, fn) { ST.busy = label; ST.err = ""; ST.done = ""; draw(); try { await fn(); } catch (e) { ST.err = e && e.code === "auth/popup-closed-by-user" ? "Google permission window was closed." : (e && e.message) || "Something went wrong."; } ST.busy = ""; draw(); }
+async function run(label, fn) { ST.busy = label; ST.err = ""; ST.done = ""; draw(); try { await fn(); } catch (e) { const code = e && e.code;
+    ST.err = code === "auth/popup-closed-by-user" ? "The Google window was closed before you allowed access. Tap again and choose Continue."
+      : code === "auth/popup-blocked" ? "Your browser blocked the Google window. Allow pop-ups for miauxeveryday.web.app, then tap again."
+      : code === "auth/cancelled-popup-request" ? "The Google window was interrupted. Tap again."
+      : code === "auth/user-mismatch" ? "Pick the same Google account you're signed in with."
+      : (e && e.message) || "Something went wrong."; } ST.busy = ""; draw(); }
 
 function groupChanges(changes, model) {
   const g = {};

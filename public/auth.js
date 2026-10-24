@@ -88,15 +88,21 @@ getRedirectResult(auth).catch(e => { gateMsg.innerHTML = /missing-initial-state|
 
 // Google Sheets permission (asked only when someone uses Sheets sync). Token lives in memory for ~55 minutes.
 let sheetsTok = null;
+let sheetsAsking = null;     // one Google window at a time: everyone waiting shares it
 window.miauSheetsToken = async (force) => {
   if (!force && sheetsTok && sheetsTok.exp > Date.now()) return sheetsTok.t;
+  if (sheetsAsking) return sheetsAsking;
+  sheetsAsking = askSheets().finally(() => { sheetsAsking = null; });
+  return sheetsAsking;
+};
+async function askSheets() {
   const u = auth.currentUser; if (!u) throw new Error("Sign in first.");
   const p = new GoogleAuthProvider(); p.addScope("https://www.googleapis.com/auth/spreadsheets");
   p.setCustomParameters({ login_hint: u.email || "" });
   const r = await reauthenticateWithPopup(u, p), c = GoogleAuthProvider.credentialFromResult(r);
   if (!c || !c.accessToken) throw new Error("Google didn't give permission to use Sheets.");
   sheetsTok = { t: c.accessToken, exp: Date.now() + 55 * 60 * 1000 }; return sheetsTok.t;
-};
+}
 window.miauSheetsForget = () => { sheetsTok = null; };
 window.miauUserEmail = () => (auth.currentUser && auth.currentUser.email) || "";
 
