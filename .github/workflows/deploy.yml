@@ -26,7 +26,9 @@ jobs:
       - name: Check config, rules and scripts
         run: node scripts/check.mjs
       - name: Google Sheets sync engine tests
-        run: node tests/sync.test.mjs
+        run: |
+          node tests/sync.test.mjs
+          node tests/sync-v1.test.mjs
 
   security:
     # Attacks the database rules (strangers, customers, non-staff) using Google's Firestore emulator.

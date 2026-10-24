@@ -234,7 +234,7 @@ details.nut[open]>summary{border-bottom:1px solid var(--border)}
   .side-col{display:flex;flex-direction:column;gap:16px;position:sticky;top:20px}
   .setrow.two{grid-template-columns:1fr 1fr}
   .rscroll{overflow-x:auto}
-  .rt .rh,.rt .rr{display:grid;grid-template-columns:minmax(210px,1fr) 72px 62px 78px 84px 84px 44px 128px 28px;gap:8px;align-items:center;padding:8px 16px;min-width:880px}
+  .rt .rh,.rt .rr{display:grid;grid-template-columns:minmax(200px,1fr) 72px 62px 78px 84px 84px 128px 118px 44px;gap:8px;align-items:center;padding:8px 16px;min-width:980px}
   .rt .rh{font-size:12px;color:var(--muted);font-weight:500;border-bottom:1px solid var(--border);padding-top:10px;padding-bottom:10px}
   .rt .rr{border-bottom:1px solid var(--border)} .rt .rr.flag{background:linear-gradient(90deg,var(--warn-bg),transparent 60%)}
   .rt .r{text-align:right}
@@ -298,6 +298,14 @@ details.nut[open]>summary{border-bottom:1px solid var(--border)}
 :root[data-theme="dark"] .wm-light{display:none!important} :root[data-theme="dark"] .wm-dark{display:block!important}
 @media (max-width:900px){.mbrand{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.mbrand img{height:28px;width:auto}.mbrand small{font:800 11px var(--f);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}}
 
+/* standard recipes across sizes */
+.stdbox{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;background:var(--sunken);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;font-size:14px}
+.stdbox span{flex:1 1 260px;min-width:0}
+.stdbox.on{background:var(--accent-soft);border-color:transparent}
+.ln.auto .sel,.ln.auto .in,.rr.auto .sel,.rr.auto .in{opacity:.75}
+.tsel{font-size:12px;padding:5px 8px;height:auto}
+.badge.neutral{background:var(--sunken);color:var(--muted)}
+
 /* Google Sheets sync */
 .sx{display:flex;flex-direction:column;gap:14px}
 .sx p{margin:0;line-height:1.55}
@@ -309,6 +317,7 @@ details.nut[open]>summary{border-bottom:1px solid var(--border)}
 .sx-err ul{margin:6px 0 0;padding-left:18px}
 .sx-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;font-size:14px}
 .sx-list li{display:flex;flex-direction:column;gap:6px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.sx-list li .badge{align-self:flex-start}
 .sx-list li:last-child{border-bottom:0;padding-bottom:0}
 .sx-adv summary{cursor:pointer;color:var(--muted);font-weight:700}
 .sx-adv[open]{display:flex;flex-direction:column;gap:10px}
@@ -382,7 +391,25 @@ function scaleOf(d){
   if(isPrep(d)){const m=+d.batchMult;return m>0?m:1;}
   const b=+d.baseVol,t=+d.targetVol;return (b>0&&t>0)?t/b:1;
 }
-function qtyUsed(l,f){if(l.qty===null||l.qty===undefined||l.qty==="")return null;const q=+l.qty||0;return l.fixed?q:q*f;}
+function qtyUsed(l,f){if(l.qty===null||l.qty===undefined||l.qty==="")return null;const q=+l.qty||0;return (l.fixed||l.t==="same"||l.t==="size")?q:q*f;}
+// ---- standard recipes: every size made at the same strength as the smallest size ----
+// Line types: "scale" (keeps strength), "same" (same in every size), "size" (typed per size, e.g. cups), "ice" (typed per size; takes up room in the cup)
+const ICE_ML_PER_G=1.09;   // 1 g of ice displaces about 1.09 ml (ice is lighter than water)
+function lineType(l,it){if(l.t)return l.t;if(l.fixed)return "same";if(it&&it.category==="Packaging")return "size";if(it&&/\bice\b/i.test(it.name||""))return "ice";return "scale";}
+function cupOf(d){return +d.targetVol||+d.baseVol||0;}
+function iceMl(lines,items){let s=0;for(const l of lines||[])if(lineType(l,items[l.itemId])==="ice"&&+l.qty>0)s+=(l.unit==="ml"?1:ICE_ML_PER_G)*(+l.qty);return s;}
+function roundQty(q){return Math.abs(q)<10?Math.round(q*10)/10:Math.round(q);}
+function liquidOf(d,items){return cupOf(d)-iceMl(d.lines,items);}
+// lines for another size of a standard recipe: scaled lines from the base + this size's own cups/ice
+function standardLines(base,sib,items){
+  const Lb=liquidOf(base,items),Ls=liquidOf(sib,items),vb=cupOf(base),vs=cupOf(sib);
+  const r=(Lb>0&&Ls>0)?Ls/Lb:(vb>0&&vs>0?vs/vb:1), out=[];
+  for(const l of base.lines||[]){if(!l.itemId)continue;const t=lineType(l,items[l.itemId]);if(t==="size"||t==="ice")continue;
+    const q=(l.qty===null||l.qty===undefined||l.qty==="")?null:(t==="same"?+l.qty:roundQty(+l.qty*r));
+    const o=Object.assign({},l,{qty:q,t,auto:true});if(t==="same")o.fixed=true;else delete o.fixed;out.push(o);}
+  for(const l of sib.lines||[]){if(l.auto)continue;const t=lineType(l,items[l.itemId]);if(!l.itemId||t==="size"||t==="ice")out.push(l.itemId?Object.assign({},l,{t}):l);}
+  return out;
+}
 // cost per base unit of an item; null = no price yet
 function baseRate(it, items, depth){
   depth=depth||0;
@@ -482,7 +509,7 @@ const IC={
   x:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
   chev:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>'
 };
-const CAT_LABEL={"Ingredient":"Ingredient","Packaging":"Packaging","House-made":"In-house"};
+const CAT_LABEL={"Ingredient":"Ingredient","Packaging":"Packaging","Supplies":"Supplies","House-made":"In-house"};
 
 const START_VIEW=(()=>{try{const u=new URL(location.href),v=u.searchParams.get("view");if(u.searchParams.has("view")||u.searchParams.has("source")){u.searchParams.delete("view");u.searchParams.delete("source");history.replaceState(null,"",u.pathname+(u.search||"")+u.hash);}return ["menu","items","preps","orders","online","sheets"].includes(v)?v:"menu";}catch{return "menu";}})();
 const S={items:{},drinks:{},view:START_VIEW,sel:null,drawer:null,q:"",mf:"all",iq:"",if:"all",db:null,loaded:{items:false,drinks:false},readonly:false};
@@ -509,8 +536,37 @@ function remove(col,id){
   if(S.db&&!S.readonly) S.db.collection(col).doc(id).delete().catch(()=>toastErr("Delete failed"));
 }
 
+/* ---------- standard recipes across sizes ---------- */
+const sameName=(a,b)=>(a||"").trim().toLowerCase()===(b||"").trim().toLowerCase();
+function sizesOf(name){return Object.entries(S.drinks).filter(([,d])=>sameName(d.name,name)).sort((a,b)=>cupOf(a[1])-cupOf(b[1]));}
+function stdBaseOf(name){const g=sizesOf(name).filter(([,d])=>d.std);return g.length?g[0]:null;}
+let stdBusy=false;
+function restandardize(name){
+  const b=stdBaseOf(name); if(!b) return 0; let n=0; stdBusy=true;
+  try{for(const [id,d] of sizesOf(name)){if(!d.std)continue;
+    if(id===b[0]){if(d.targetVol&&d.baseVol!==d.targetVol){d.baseVol=d.targetVol;save("drinks",id,true);}continue;}
+    const nl=standardLines(b[1],d,S.items);
+    if(JSON.stringify(nl)!==JSON.stringify(d.lines)||(d.targetVol&&d.baseVol!==d.targetVol)){d.lines=nl;if(d.targetVol)d.baseVol=d.targetVol;save("drinks",id,true);n++;}}}
+  finally{stdBusy=false;}
+  return n;
+}
+// Turn "same strength" on or off for every size of a drink
+function setStd(name,on){
+  for(const [id,d] of sizesOf(name)){
+    if(on){const f=scaleOf(d);
+      d.lines=(d.lines||[]).map(l=>{if(!l.itemId)return l;const o=Object.assign({},l,{t:lineType(l,S.items[l.itemId])});
+        if(f!==1&&o.t!=="same"&&o.t!=="size"&&o.qty!=null&&o.qty!=="")o.qty=roundQty(+o.qty*f);if(o.t==="same")o.fixed=true;return o;});
+      if(d.targetVol)d.baseVol=d.targetVol; d.std=true;}
+    else{delete d.std;d.lines=(d.lines||[]).map(l=>{const o=Object.assign({},l);delete o.auto;return o;});}
+    save("drinks",id,true);}
+  if(on) restandardize(name);
+}
+{const _raw=save, timers={};   // one pending recalculation per drink name
+ save=function(col,id,now){_raw(col,id,now);
+   if(col==="drinks"&&!stdBusy){const d=S.drinks[id];if(d&&d.std){const n=d.name,k=(n||"").trim().toLowerCase();clearTimeout(timers[k]);timers[k]=setTimeout(()=>{delete timers[k];if(restandardize(n)&&(S.view==="drink")&&!editing())render();},300);}}};}
+
 /* ---------- derived ---------- */
-const ORDER={"Ingredient":0,"House-made":1,"Packaging":2};
+const ORDER={"Ingredient":0,"House-made":1,"Packaging":2,"Supplies":3};
 const items=()=>Object.entries(S.items).sort((a,b)=>(ORDER[a[1].category]??3)-(ORDER[b[1].category]??3)||(a[1].name||"").localeCompare(b[1].name||""));
 const drinks=()=>Object.entries(S.drinks).sort((a,b)=>(a[1].name||"").localeCompare(b[1].name||"")||(+a[1].baseVol||0)-(+b[1].baseVol||0)||(+a[1].targetVol||0)-(+b[1].targetVol||0));
 const preps=()=>items().filter(([,it])=>isPrep(it));
@@ -641,18 +697,18 @@ function renderDetail(kind){return isDesk()?renderDetailD(kind):renderDetailM(ki
 function renderDetailM(kind){
   const c=cur(), d=c.doc, isD=kind==="drink";
   const lines=(d.lines||[]).map((l,i)=>{const it=S.items[l.itemId],u=l.unit||(it?it.unit:"g");return `
-    <div class="ln" data-line="${i}">
-      <div class="pick"><select class="sel" id="ln-${i}-item" data-f="itemId" aria-label="Ingredient">${itemOptions(l.itemId,isD?null:c.id)}</select></div>
-      <div class="qty"><input class="in num" id="ln-${i}-qty" data-f="qty" type="number" step="any" min="0" inputmode="decimal" value="${l.qty??""}" aria-label="Amount"></div>
-      <div class="unit"><select class="sel" id="ln-${i}-unit" data-f="unit" aria-label="Unit">${UNITS.map(x=>`<option${x===u?" selected":""}>${x}</option>`).join("")}</select></div>
+    <div class="ln${l.auto?" auto":""}" data-line="${i}">
+      <div class="pick"><select class="sel" id="ln-${i}-item" data-f="itemId" aria-label="Ingredient"${l.auto?" disabled":""}>${itemOptions(l.itemId,isD?null:c.id)}</select></div>
+      <div class="qty"><input class="in num" id="ln-${i}-qty" data-f="qty" type="number" step="any" min="0" inputmode="decimal" value="${l.qty??""}" aria-label="Amount"${l.auto?" disabled":""}></div>
+      <div class="unit"><select class="sel" id="ln-${i}-unit" data-f="unit" aria-label="Unit"${l.auto?" disabled":""}>${UNITS.map(x=>`<option${x===u?" selected":""}>${x}</option>`).join("")}</select></div>
       <div class="cost" data-out="cost${i}"></div>
-      <div class="del"><button class="icon-btn" data-del-line="${i}" aria-label="Remove">${IC.x}</button></div>
+      <div class="del">${l.auto?"":`<button class="icon-btn" data-del-line="${i}" aria-label="Remove">${IC.x}</button>`}</div>
       <div class="sub" data-out="sub${i}"></div>
     </div>`;}).join("");
   const settings=isD?`
     <div class="setrow">
       <label class="fld"><span>Cup</span><div class="unitwrap"><input class="in num" id="d-cup" data-d="targetVol" type="number" step="any" min="0" inputmode="decimal" value="${d.targetVol??""}"><b>ml</b></div></label>
-      <label class="fld"><span>Recipe for</span><div class="unitwrap"><input class="in num" id="d-base" data-d="baseVol" type="number" step="any" min="0" inputmode="decimal" value="${d.baseVol??""}"><b>ml</b></div></label>
+      ${d.std?"":`<label class="fld"><span>Recipe for</span><div class="unitwrap"><input class="in num" id="d-base" data-d="baseVol" type="number" step="any" min="0" inputmode="decimal" value="${d.baseVol??""}"><b>ml</b></div></label>`}
       <label class="fld"><span>VAT</span><div class="unitwrap"><input class="in num" id="d-vat" data-d="vat" data-pct type="number" step="any" min="0" inputmode="decimal" value="${d.vat==null?"":+(d.vat*100).toFixed(2)}"><b>%</b></div></label>
       <label class="fld"><span>Max cost</span><div class="unitwrap"><input class="in num" id="d-target" data-d="target" data-pct type="number" step="any" min="0" inputmode="decimal" value="${d.target==null?"":+(d.target*100).toFixed(2)}"><b>%</b></div></label>
     </div>`:`
@@ -690,6 +746,7 @@ function renderDetailM(kind){
   <div class="detail">
     <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
       <div class="card"><div class="card-b">${settings}<div class="faint" data-out="factor" style="font-size:12px;margin-top:10px"></div></div></div>
+      ${stdBox(d)}
       <div class="card lines">
         <div class="card-h"><h2>Recipe</h2><span class="muted" data-out="count" style="font-size:12px"></span></div>
         <div class="lh"><span>Ingredient</span><span style="text-align:right">Amount</span><span>Unit</span><span style="text-align:right">Cost</span><span></span></div>
@@ -706,6 +763,21 @@ function renderDetailM(kind){
   </div>`;
   recompute();
 }
+const LTYPES=[["scale","Scales"],["same","Same all sizes"],["size","This size only"],["ice","Ice"]];
+function typeSel(l,i,disabled){const t=l.itemId?lineType(l,S.items[l.itemId]):"scale";return `<select class="sel tsel" id="ln-${i}-t" data-f="t" aria-label="How it changes with size"${disabled?" disabled":""}>${LTYPES.map(([k,v])=>`<option value="${k}"${k===t?" selected":""}>${v}</option>`).join("")}</select>`;}
+function stdInfo(d){
+  if(S.view!=="drink"||!d||!d.std) return null;
+  const g=sizesOf(d.name), b=stdBaseOf(d.name); if(!b) return null;
+  const isBase=S.drinks[S.sel]===b[1], others=g.filter(([id])=>id!==b[0]).map(([,x])=>cupOf(x)+" ml");
+  return {isBase,baseMl:cupOf(b[1]),others,baseId:b[0]};
+}
+function stdBox(d){
+  if(S.view!=="drink") return "";
+  const g=sizesOf(d.name), info=stdInfo(d);
+  if(!d.std) return g.length>1?`<div class="stdbox"><span><b>Sizes:</b> each size has its own recipe.</span><button class="btn sm" id="std-on">Make all ${g.length} sizes the same strength</button></div>`:"";
+  return `<div class="stdbox on"><span>${info.isBase?`<b>Standard recipe.</b> ${info.others.length?info.others.join(", ")+" follow this recipe at the same strength (ice-aware).":"Add sizes with Duplicate; they'll follow this recipe."}`:`<b>Follows the ${info.baseMl} ml recipe</b> at the same strength. Change amounts there; set this size's <b>ice</b> and <b>cup</b> here.`}</span>
+    ${info.isBase?`<button class="btn sm" id="std-add">+ Add a size</button>`:`<button class="btn sm" data-open-base="${info.baseId}">Open ${info.baseMl} ml</button>`}<button class="btn sm ghost" id="std-off">Let sizes have their own recipes</button></div>`;
+}
 function subHTML(l,r,i,f){
   const name=r.it?esc(r.it.name):"";
   if(l.itemId&&!r.it) return `<button class="badge warn" data-focus="ln-${i}-item">Choose again</button>`;
@@ -717,7 +789,8 @@ function subHTML(l,r,i,f){
   if(r.base==null) parts.push(`<button class="badge warn" data-fix="${l.itemId}" data-field="${isPrep(r.it)?"open":"price"}">${isPrep(r.it)?"Incomplete":"Add price"}</button>`);
   else parts.push(`<span>${peso4(r.rate)}/${esc(r.unit)}</span>`);
   if(f!==1&&r.used!=null) parts.push(`<span>uses ${+r.used.toFixed(2)} ${esc(r.unit)}</span>`);
-  parts.push(`<label class="sw" title="Scales with size"><input type="checkbox" data-f="scales"${l.fixed?"":" checked"}> Scales</label>`);
+  if(S.view==="drink") parts.push(typeSel(l,i,l.auto)); else parts.push(`<label class="sw" title="Scales with size"><input type="checkbox" data-f="scales"${l.fixed?"":" checked"}> Scales</label>`);
+  if(l.auto) parts.push(`<span class="badge neutral">auto</span>`);
   return parts.join("");
 }
 function recompute(){
@@ -768,7 +841,7 @@ function drawRender(){
   <div class="dh"><h3>${it.name?esc(it.name):"New item"}</h3><button class="icon-btn" id="dr-close" aria-label="Close">${IC.x}</button></div>
   <div class="db">
     <label class="fld"><span>Name</span><input class="in" id="it-name" data-m="name" value="${esc(it.name)}"></label>
-    <div class="fld"><span>Type</span><div class="seg">${["Ingredient","Packaging","House-made"].map(k=>`<button data-cat="${k}" aria-pressed="${it.category===k}">${CAT_LABEL[k]}</button>`).join("")}</div></div>
+    <div class="fld"><span>Type</span><div class="seg">${["Ingredient","Packaging","Supplies","House-made"].map(k=>`<button data-cat="${k}" aria-pressed="${it.category===k}">${CAT_LABEL[k]}</button>`).join("")}</div></div>
     ${prep?`<div class="fld"><span>Cost</span><div class="result" data-dr="rate"></div><button class="btn" data-open-prep="${id}">Open recipe ›</button></div>`:`
     <div class="fld"><span>Pack</span>
       <div class="sentence"><input class="in num" id="it-size" data-m="packSize" data-focus-key="price" type="number" step="any" min="0" inputmode="decimal" value="${it.packSize??""}" placeholder="1000">
@@ -816,6 +889,16 @@ document.addEventListener("click",e=>{
     if(isDesk()){S.if="all";S.iq="";renderItems();const el=document.getElementById("g-name-"+id);if(el){el.focus();el.scrollIntoView({block:"center"});el.closest("tr").classList.add("hl");}}else openDrawer(id);return;}
   if(t.id==="dup"){const c=cur(),id=rid("d"),src=JSON.parse(JSON.stringify(c.doc));src.name=(src.name||"Drink")+" copy";S.drinks[id]=src;save("drinks",id,true);go("drink",id);return;}
   if(t.id==="del"){const c=cur();arm("del:"+c.id,"#del",()=>{remove(c.kind==="drink"?"drinks":"items",c.id);go(c.kind==="drink"?"menu":"preps");});return;}
+  if(t.id==="std-on"){const c=cur(),n=sizesOf(c.doc.name).length;
+    if(t.dataset.armed!=="1"){t.dataset.armed="1";t.textContent=`Tap again: recalculate ${n-1} other size${n>2?"s":""} from the ${cupOf(sizesOf(c.doc.name)[0][1])} ml recipe`;t.classList.add("armed");setTimeout(()=>{if(t.isConnected){t.dataset.armed="";t.classList.remove("armed");t.textContent=`Make all ${n} sizes the same strength`;}},5000);return;}
+    setStd(c.doc.name,true);render();return;}
+  if(t.id==="std-add"){const c=cur(),b=c.doc,id=rid("d"),big=Math.max(...sizesOf(b.name).map(([,x])=>cupOf(x)));
+    S.drinks[id]={name:b.name,std:true,targetVol:big+120,baseVol:big+120,price:null,vat:b.vat??0.12,target:b.target??0.3,
+      lines:(b.lines||[]).filter(l=>l.itemId&&(lineType(l,S.items[l.itemId])==="ice")).map(l=>Object.assign({},l))};
+    save("drinks",id,true);restandardize(b.name);go("drink",id);setTimeout(()=>$("#d-cup")?.focus(),30);return;}
+  if(t.id==="std-off"){const c=cur();setStd(c.doc.name,false);render();return;}
+  if(t.dataset.openBase){go("drink",t.dataset.openBase);return;}
+  if(t.id==="add-line"&&S.view==="drink"&&cur().doc.std&&stdInfo(cur().doc)&&!stdInfo(cur().doc).isBase){const c=cur();c.doc.lines=(c.doc.lines||[]).concat([{itemId:"",qty:null,t:"size"}]);save("drinks",c.id,true);render();return;}
   if(t.id==="add-line"){const c=cur();c.doc.lines=(c.doc.lines||[]).concat([{itemId:"",qty:null}]);save(c.kind==="drink"?"drinks":"items",c.id,true);render();const s=view.querySelectorAll('[data-f="itemId"]');s[s.length-1]?.focus();return;}
   if(t.dataset.delLine!==undefined){const c=cur();c.doc.lines.splice(+t.dataset.delLine,1);save(c.kind==="drink"?"drinks":"items",c.id,true);render();return;}
   if(t.id==="apply-price"){const c=cur();c.doc.price=+t.dataset.price;save("drinks",c.id,true);render();return;}
@@ -867,6 +950,7 @@ document.addEventListener("change",e=>{
     l.itemId=el.value;const it=S.items[el.value];if(it)l.unit=it.unit;save(col,c.id,true);render();return;}
   if(el.dataset.f==="unit"){const i=+el.closest("[data-line]").dataset.line;c.doc.lines[i].unit=el.value;save(col,c.id,true);recompute();return;}
   if(el.dataset.f==="scales"){const i=+el.closest("[data-line]").dataset.line;c.doc.lines[i].fixed=!el.checked;save(col,c.id,true);recompute();return;}
+  if(el.dataset.f==="t"){const i=+el.closest("[data-line]").dataset.line,l=c.doc.lines[i];l.t=el.value;if(l.t==="same")l.fixed=true;else delete l.fixed;save(col,c.id,true);render();return;}
   if(el.dataset.d==="unit"){c.doc.unit=el.value;save(col,c.id,true);render();return;}
   if(el.dataset.d==="nutrManual"){c.doc.nutrManual=el.checked;save(col,c.id,true);render();return;}
 });
@@ -1007,7 +1091,7 @@ function renderItemsD(){
       <thead><tr><th>Item</th><th>Type</th><th class="r">Pack size</th><th>Unit</th><th class="r">Pack price</th><th class="r">Usable</th><th class="r">100 ml weighs</th><th class="r">Cost</th><th>Status</th><th></th></tr></thead>
       <tbody>${list.map(([id,it])=>{const prep=isPrep(it);return `<tr data-gid="${id}">
         <td><input class="in gin gname" data-gi="name" data-id="${id}" id="g-name-${id}" value="${esc(it.name)}" placeholder="Name"></td>
-        <td><select class="sel gin" data-gs="category" data-id="${id}" id="g-cat-${id}">${["Ingredient","Packaging","House-made"].map(k=>`<option value="${k}"${it.category===k?" selected":""}>${CAT_LABEL[k]}</option>`).join("")}</select></td>
+        <td><select class="sel gin" data-gs="category" data-id="${id}" id="g-cat-${id}">${["Ingredient","Packaging","Supplies","House-made"].map(k=>`<option value="${k}"${it.category===k?" selected":""}>${CAT_LABEL[k]}</option>`).join("")}</select></td>
         ${prep?`<td colspan="2" class="muted" style="font-size:13px">Recipe · ${it.yieldQty?+(it.yieldQty*scaleOf(it)).toFixed(1)+" "+esc(it.unit):"no batch size"}</td>
           <td class="r"><button class="btn sm" data-open-prep="${id}">Open recipe</button></td>
           <td>${num(id,"yield",it.yield==null||it.yield===""?"":+(it.yield*100).toFixed(2),"100","%",false,'data-pct max="100"')}</td><td></td>`
@@ -1027,20 +1111,20 @@ function renderItemsD(){
 function renderDetailD(kind){
   const c=cur(), d=c.doc, isD=kind==="drink";
   const rows=(d.lines||[]).map((l,i)=>{const it=S.items[l.itemId],u=l.unit||(it?it.unit:"g");return `
-    <div class="rr" data-line="${i}">
-      <select class="sel" id="ln-${i}-item" data-f="itemId" aria-label="Ingredient">${itemOptions(l.itemId,isD?null:c.id)}</select>
-      <input class="in num" id="ln-${i}-qty" data-f="qty" type="number" step="any" min="0" inputmode="decimal" value="${l.qty??""}" aria-label="Amount">
-      <select class="sel" id="ln-${i}-unit" data-f="unit" aria-label="Unit">${UNITS.map(x=>`<option${x===u?" selected":""}>${x}</option>`).join("")}</select>
+    <div class="rr${l.auto?" auto":""}" data-line="${i}">
+      <select class="sel" id="ln-${i}-item" data-f="itemId" aria-label="Ingredient"${l.auto?" disabled":""}>${itemOptions(l.itemId,isD?null:c.id)}</select>
+      <input class="in num" id="ln-${i}-qty" data-f="qty" type="number" step="any" min="0" inputmode="decimal" value="${l.qty??""}" aria-label="Amount"${l.auto?" disabled":""}>
+      <select class="sel" id="ln-${i}-unit" data-f="unit" aria-label="Unit"${l.auto?" disabled":""}>${UNITS.map(x=>`<option${x===u?" selected":""}>${x}</option>`).join("")}</select>
       <span class="num r muted" data-out="used${i}"></span>
       <span class="num r muted" data-out="rate${i}"></span>
       <span class="num r" data-out="cost${i}"></span>
-      <label class="sw" title="Scales with cup size"><input type="checkbox" data-f="scales"${l.fixed?"":" checked"} aria-label="Scales"></label>
+      ${isD?typeSel(l,i,l.auto):`<label class="sw" title="Scales with batch size"><input type="checkbox" data-f="scales"${l.fixed?"":" checked"} aria-label="Scales"></label>`}
       <span data-out="fix${i}"></span>
-      <button class="icon-btn" data-del-line="${i}" aria-label="Remove">${IC.x}</button>
+      ${l.auto?`<span class="badge neutral" title="Calculated from the first size">auto</span>`:`<button class="icon-btn" data-del-line="${i}" aria-label="Remove">${IC.x}</button>`}
     </div>`;}).join("");
   const settings=isD?`
     <label class="fld"><span>Cup</span><div class="unitwrap"><input class="in num" id="d-cup" data-d="targetVol" type="number" step="any" min="0" inputmode="decimal" value="${d.targetVol??""}"><b>ml</b></div></label>
-    <label class="fld"><span>Recipe for</span><div class="unitwrap"><input class="in num" id="d-base" data-d="baseVol" type="number" step="any" min="0" inputmode="decimal" value="${d.baseVol??""}"><b>ml</b></div></label>
+    ${d.std?"":`<label class="fld"><span>Recipe for</span><div class="unitwrap"><input class="in num" id="d-base" data-d="baseVol" type="number" step="any" min="0" inputmode="decimal" value="${d.baseVol??""}"><b>ml</b></div></label>`}
     <label class="fld"><span>VAT</span><div class="unitwrap"><input class="in num" id="d-vat" data-d="vat" data-pct type="number" step="any" min="0" inputmode="decimal" value="${d.vat==null?"":+(d.vat*100).toFixed(2)}"><b>%</b></div></label>
     <label class="fld"><span>Max cost</span><div class="unitwrap"><input class="in num" id="d-target" data-d="target" data-pct type="number" step="any" min="0" inputmode="decimal" value="${d.target==null?"":+(d.target*100).toFixed(2)}"><b>%</b></div></label>`:`
     <label class="fld"><span>Batch makes</span><input class="in num" id="p-yield" data-d="yieldQty" type="number" step="any" min="0" inputmode="decimal" value="${d.yieldQty??""}"></label>
@@ -1066,10 +1150,11 @@ function renderDetailD(kind){
   <div class="kpis ${isD?"five":"three"}">${strip}</div>
   ${isD?`<div id="pc-box" class="card" hidden style="padding:12px 16px;margin:-4px 0 16px;max-width:520px"></div>`:""}
   <div class="dgrid">
+    ${stdBox(d)?`<div style="grid-column:1/-1">${stdBox(d)}</div>`:""}
     <div class="card rt">
       <div class="card-h"><h2>Recipe</h2><span class="muted" data-out="count" style="font-size:12px"></span></div>
       <div class="rscroll">
-        <div class="rh"><span>Ingredient</span><span class="r">Amount</span><span>Unit</span><span class="r">Used</span><span class="r">Cost / unit</span><span class="r">Cost</span><span>Scales</span><span>Status</span><span></span></div>
+        <div class="rh"><span>Ingredient</span><span class="r">Amount</span><span>Unit</span><span class="r">Used</span><span class="r">Cost / unit</span><span class="r">Cost</span><span>${isD?"Sizes":"Scales"}</span><span>Status</span><span></span></div>
         ${rows||'<div class="empty">No ingredients yet.</div>'}
       </div>
       <div class="addrow"><button class="btn sm" id="add-line">${IC.plus}Add ingredient</button></div>
@@ -1120,7 +1205,7 @@ const ago = ms => { const m = Math.round((Date.now() - ms) / 60000); return m < 
 function ingredientNames(lines, depth) {
   const out = [];
   for (const l of lines || []) {
-    const it = S.items[l.itemId]; if (!it || it.category === "Packaging") continue;
+    const it = S.items[l.itemId]; if (!it || it.category === "Packaging" || it.category === "Supplies") continue;
     let n = it.name || ""; if (!n) continue;
     if (isPrep(it) && depth < 1) { const sub = ingredientNames(it.lines, depth + 1); if (sub.length) n += " (" + sub.join(", ") + ")"; }
     if (!out.some(x => x.split(" (")[0].toLowerCase() === n.split(" (")[0].toLowerCase())) out.push(n);

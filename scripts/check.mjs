@@ -21,7 +21,7 @@ for (const e of emails) if (e !== e.toLowerCase() || !/^[^@\s]+@[^@\s]+\.[^@\s]+
 const html = read("public/index.html");
 const inline = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
 inline.forEach((code, i) => { try { new vm.Script(code, { filename: `index.html inline script ${i + 1}` }); } catch (e) { problems.push(`index.html script ${i + 1}: ${e.message}`); } });
-for (const f of ["public/auth.js", "public/order.js", "public/config.js", "public/pwa.js", "public/sw.js", "public/staff-pwa.js", "public/sw-staff.js", "public/sheets.js", "public/sync-engine.js"]) {
+for (const f of ["public/auth.js", "public/order.js", "public/config.js", "public/pwa.js", "public/sw.js", "public/staff-pwa.js", "public/sw-staff.js", "public/sheets.js", "public/sync-engine.js", "public/sync-engine-v1.js"]) {
   const r = spawnSync(process.execPath, ["--check", "--input-type=module"], { input: read(f), encoding: "utf8" });
   if (r.status !== 0) problems.push(`${f}: ${(r.stderr || "").split("\n").find(l => /Error/.test(l)) || "syntax error"}`);
 }
@@ -40,4 +40,4 @@ for (const f of ["drink-costing-backup.json", "service-account.json"])
   if (existsSync(new URL("../" + f, import.meta.url))) problems.push(`${f} must not be in the repository.`);
 
 if (problems.length) { console.error("✗ Not ready to deploy:\n  - " + problems.join("\n  - ")); process.exit(1); }
-console.log(`✓ Ready: config set, ${emails.length} staff email(s), ${inline.length + 9} scripts parse, app manifests OK.`);
+console.log(`✓ Ready: config set, ${emails.length} staff email(s), ${inline.length + 10} scripts parse, app manifests OK.`);
