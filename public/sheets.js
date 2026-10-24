@@ -86,7 +86,7 @@ function addExamples() {
   const byName = n => Object.entries(S.items).find(([, it]) => (it.name || "").trim().toLowerCase() === n.toLowerCase());
   for (const x of E.EXAMPLES.buy) if (!byName(x.name)) { const id = E.slug(x.name); S.items[S.items[id] ? id + "-ex" : id] = Object.assign({}, x); }
   for (const x of E.EXAMPLES.house) if (!byName(x.name)) { const id = E.slug(x.name);
-    S.items[S.items[id] ? id + "-ex" : id] = { name: x.name, category: "House-made", unit: x.unit, yieldQty: x.yieldQty, batchMult: 1, note: x.note,
+    S.items[S.items[id] ? id + "-ex" : id] = { name: x.name, category: "House-made", unit: x.unit, yieldQty: x.yieldQty, batchMult: 1, note: x.note, ...(x.nutr ? { nutrManual: true, nutr: Object.assign({}, x.nutr) } : {}),
       lines: x.lines.map(([n, q2, u]) => ({ itemId: (byName(n) || [""])[0], qty: q2, unit: u })) }; }
   for (const [id, c] of Object.entries(E.assignCodes(S.items))) S.items[id].code = c;
   for (const id of Object.keys(S.items)) save("items", id, true);

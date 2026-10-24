@@ -461,9 +461,10 @@ export const HOWTO = [["How to use this sheet"], [""],
 // examples added to the app only if missing (by name)
 export const EXAMPLES = {
   buy: [{ name: "Ground coffee", category: "Ingredient", unit: "g", packSize: 1000, packPrice: null, yield: 1, density: null },
-        { name: "Water", category: "Ingredient", unit: "ml", packSize: 19000, packPrice: null, yield: 1, density: 1, note: "19 L jug" },
+        { name: "Water", category: "Ingredient", unit: "ml", packSize: 19000, packPrice: null, yield: 1, density: 1, note: "19 L jug", nutr: { kcal: 0, fat: 0, sat: 0, carb: 0, sugar: 0, protein: 0, sodium: 0 } },
         { name: "Cream cheese powder", category: "Ingredient", unit: "g", packSize: 500, packPrice: null, yield: 1, density: null }],
-  house: [{ name: "Espresso", unit: "ml", yieldQty: 30, lines: [["Ground coffee", 30, "g"], ["Water", 30, "ml"]], note: "Example from your recipe. A typical double shot is about 18 g coffee for 36 g espresso." },
+  house: [{ name: "Espresso", unit: "ml", yieldQty: 30, lines: [["Ground coffee", 30, "g"], ["Water", 30, "ml"]],
+            nutrManual: true, nutr: { kcal: 9, fat: 0.18, sat: 0.09, carb: 1.67, sugar: 0, protein: 0.12, sodium: 14 }, note: "Example from your recipe. A typical double shot is about 18 g coffee for 36 g espresso." },
           { name: "Cold foam", unit: "g", yieldQty: 130, lines: [["Cream cheese powder", 30, "g"], ["Water", 100, "ml"]], note: "Example amounts. Change to your recipe." }]
 };
 // Latte template: 330 / 450 / 650 ml, same strength, calculated with the same math as the app

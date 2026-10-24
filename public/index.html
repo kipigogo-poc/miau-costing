@@ -465,15 +465,18 @@ function nutrPer100(it, items, depth){
   }
   const n=it.nutr||{}; NUTS.forEach(([k])=>out[k]=numOrNull(n[k])); return out;
 }
+// plain water and ice have no calories: blank nutrition counts as 0, not as "missing"
+function zeroNutr(it){return !isPrep(it)&&/^\s*(?:(?:filtered|drinking|hot|cold|mineral|purified)\s+)?(?:water|ice)(?:\s+cubes?)?\s*$/i.test(it.name||"");}
 function recipeNutrition(lines, items, depth, f){
   f=f||1;
   const total={},missing={}; NUTS.forEach(([k])=>{total[k]=0;missing[k]=0;});
   for(const l of (lines||[])){
     const r=lineRate(l, items, depth); if(!r.it) continue;
+    if(r.it.category==="Packaging"||r.it.category==="Supplies") continue;   // cups, lids, straws: not eaten
     const used=qtyUsed(l,f);
     const qb=(used===null?0:used)*r.factor;
-    const v=nutrPer100(r.it, items, depth);
-    NUTS.forEach(([k])=>{ if(v[k]==null) missing[k]++; else total[k]+=qb/100*v[k]; });
+    const v=nutrPer100(r.it, items, depth), plain=zeroNutr(r.it);
+    NUTS.forEach(([k])=>{ if(v[k]==null){ if(!plain) missing[k]++; } else total[k]+=qb/100*v[k]; });
   }
   return {total,missing};
 }
@@ -757,7 +760,7 @@ function renderDetailM(kind){
     <div class="sticky">${econ}
       <details class="card nut" id="nutbox"${S.nutOpen?" open":""}><summary>Nutrition<span class="muted" style="font-weight:400;font-size:12px">${isD?"per cup":"per 100 "+esc(d.unit)}</span></summary>
         <div class="nl">${NUTS.map(([k,n,u])=>`<div><span>${n}</span><span class="num" data-out="n-${k}"></span></div>`).join("")}</div>
-        ${isD?"":`<div style="padding:0 16px 14px"><label class="sw"><input type="checkbox" id="p-man" data-d="nutrManual"${d.nutrManual?" checked":""}> Enter manually</label></div>`}
+        ${isD?"":`<div style="padding:0 16px 14px"><label class="sw"><input type="checkbox" id="p-man" data-d="nutrManual"${d.nutrManual?" checked":""}> Enter manually</label><div class="muted" style="font-size:12px;margin-top:4px">For espresso, coffee or tea, most of the calories stay in the grounds, so enter the brewed drink's values here (espresso ≈ 9 kcal per 100 ml).</div></div>`}
       </details>
     </div>
   </div>`;
@@ -1163,7 +1166,7 @@ function renderDetailD(kind){
       <div class="card"><div class="card-h"><h2>${isD?"Size & targets":"Batch"}</h2></div><div class="card-b setrow two">${settings}</div></div>
       <details class="card nut" id="nutbox" open><summary>Nutrition<span class="muted" style="font-weight:400;font-size:12px">${isD?"per cup":"per 100 "+esc(d.unit)}</span></summary>
         <div class="nl">${NUTS.map(([k,n])=>`<div><span>${n}</span><span class="num" data-out="n-${k}"></span></div>`).join("")}</div>
-        ${isD?"":`<div style="padding:0 16px 14px"><label class="sw"><input type="checkbox" id="p-man" data-d="nutrManual"${d.nutrManual?" checked":""}> Enter manually</label></div>`}
+        ${isD?"":`<div style="padding:0 16px 14px"><label class="sw"><input type="checkbox" id="p-man" data-d="nutrManual"${d.nutrManual?" checked":""}> Enter manually</label><div class="muted" style="font-size:12px;margin-top:4px">For espresso, coffee or tea, most of the calories stay in the grounds, so enter the brewed drink's values here (espresso ≈ 9 kcal per 100 ml).</div></div>`}
       </details>
     </div>
   </div>`;
