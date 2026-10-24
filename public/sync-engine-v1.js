@@ -15,7 +15,7 @@ export const ING_TAB = "Ingredients", PREP_TAB = "House-made recipes", LIST_TAB 
 export const NUT = [["kcal", "kcal"], ["fat", "Fat (g)"], ["sat", "Sat. fat (g)"], ["carb", "Carbs (g)"], ["sugar", "Sugars (g)"], ["protein", "Protein (g)"], ["sodium", "Sodium (mg)"]];
 export const ING_HEAD = ["Code", "Name", "Category", "Unit", "Pack size", "Pack price (₱)", "Usable %", "Density (g per ml)", ...NUT.map(n => n[1] + " per 100"), "Note"];
 export const PREP_HEAD = ["Code", "Recipe", "Makes", "Batch ×", "Ingredient code", "Ingredient", "Amount", "Unit", "Note"];
-const CATS = ["Ingredient", "Packaging", "House-made"], UNITS = ["g", "ml", "pc"];
+const CATS = ["Ingredient", "Packaging", "Supplies", "House-made"], UNITS = ["g", "ml", "pc"];
 const ROW = { size: "Size (ml)", price: "Price (₱)", target: "Target cost %", base: "Recipe written for (ml)", id: "App ID (don't edit)" };
 const SAME = "Same in every size", NOTE = "Note";
 
@@ -32,7 +32,7 @@ const sizeOf = d => +d.targetVol || +d.baseVol || 0;
 // ---------- codes: every item needs a Code (the join key with the sheet) ----------
 export function assignCodes(items) {
   const used = new Set(Object.values(items).map(i => str(i.code)).filter(Boolean)), out = {};
-  const pre = it => it.category === "Packaging" ? "PKG" : isPrep(it) ? "HM" : "ING";
+  const pre = it => it.category === "Packaging" ? "PKG" : it.category === "Supplies" ? "SUP" : isPrep(it) ? "HM" : "ING";
   for (const [id, it] of Object.entries(items)) {
     if (str(it.code)) continue;
     let n = 1, c; do { c = `${pre(it)}-${String(n++).padStart(3, "0")}`; } while (used.has(c));
@@ -176,7 +176,7 @@ export function tabsToModel(ingTabs, menuTabs, appModel = {}, baseModel = {}) {
       codes.add(code);
       const p = `i:${code}:`, cat = CATS.find(c => c.toLowerCase() === str(g("Category")).toLowerCase()) || (str(g("Category")) ? null : "Ingredient");
       const unit = str(g("Unit")).toLowerCase() || "g";
-      if (!cat) return err(at, `Category must be Ingredient, Packaging or House-made.`, p);
+      if (!cat) return err(at, `Category must be Ingredient, Packaging, Supplies or House-made.`, p);
       if (!UNITS.includes(unit)) return err(at, `Unit must be g, ml or pc.`, p);
       const nums = {}; let ok = true;
       for (const [f, n] of [["packSize", "Pack size"], ["packPrice", "Pack price (₱)"], ["yield", "Usable %"], ["density", "Density (g per ml)"], ...NUT.map(([k, l]) => ["n_" + k, l + " per 100"])]) {

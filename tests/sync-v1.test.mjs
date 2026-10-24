@@ -199,5 +199,12 @@ const quiet = r => r.applied && !r.changes.length && !r.conflicts.length;
   t("One file: Ingredients and House-made tabs are never deleted", !r1.plan.menuDelete.includes("Ingredients") && !r1.plan.menuDelete.includes("House-made recipes") && st.book["Ingredients"] && st.book["House-made recipes"]);
   t("One file: next sync is quiet", !one().m.changes.length); }
 
+{ const st = connect(); const h = H(st), row = h.map(() => ""); row[0] = ""; row[1] = "Dishwashing liquid"; row[2] = "Supplies"; row[3] = "ml"; row[4] = 1000; row[5] = 120;
+  st.sheet.ingredients[E.ING_TAB].push(row); const r = sync(st); const d = Object.values(st.items).find(i => i.name === "Dishwashing liquid");
+  t("Old layout: a Supplies row is accepted", r.errors.some(e => /has no Code/.test(e.msg)) || (d && d.category === "Supplies"), JSON.stringify(r.errors.slice(0, 1))); }
+{ const st = connect(); const h = H(st), row = h.map(() => ""); row[0] = "SUP-001"; row[1] = "Tissue"; row[2] = "Supplies"; row[3] = "pc"; row[4] = 100; row[5] = 50;
+  st.sheet.ingredients[E.ING_TAB].push(row); const r = sync(st); const d = Object.values(st.items).find(i => i.name === "Tissue");
+  t("Old layout: Supplies item with a code syncs into the app", r.applied && d && d.category === "Supplies" && d.packPrice === 50); }
+
 console.log(`\n${R.filter(Boolean).length}/${R.length} sync checks passed`);
 process.exit(R.every(Boolean) ? 0 : 1);

@@ -651,13 +651,13 @@ function renderMenuM(){
 function renderItems(){return isDesk()?renderItemsD():renderItemsM();}
 function renderItemsM(){
   const n=needs(), q=S.iq.toLowerCase();
-  const list=items().filter(([id,it])=>(!q||(it.name||"").toLowerCase().includes(q))&&(S.if==="all"||(S.if==="price"&&n.price.has(id))||(S.if==="dens"&&n.dens.has(id))||(S.if==="pkg"&&it.category==="Packaging")||(S.if==="hm"&&isPrep(it))));
+  const list=items().filter(([id,it])=>(!q||(it.name||"").toLowerCase().includes(q))&&(S.if==="all"||(S.if==="price"&&n.price.has(id))||(S.if==="dens"&&n.dens.has(id))||(S.if==="pkg"&&it.category==="Packaging")||(S.if==="sup"&&it.category==="Supplies")||(S.if==="hm"&&isPrep(it))));
   view.innerHTML=`
   <div class="ph"><h1>Ingredients</h1><button class="btn primary" id="add-item">${IC.plus}Add item</button></div>
   <div class="card">
     <div class="card-h toolbar">
       <div class="search">${IC.search}<input class="in" id="iq" placeholder="Search" value="${esc(S.iq)}"></div>
-      <div class="chips">${[["all","All"],["price",`No price · ${n.price.size}`],["dens",`Needs 100 ml weight · ${n.dens.size}`],["pkg","Packaging"],["hm","In-house"]].map(([k,l])=>`<button class="chip" data-if="${k}" aria-pressed="${S.if===k}">${l}</button>`).join("")}</div>
+      <div class="chips">${[["all","All"],["price",`No price · ${n.price.size}`],["dens",`Needs 100 ml weight · ${n.dens.size}`],["pkg","Packaging"],["sup","Supplies"],["hm","In-house"]].map(([k,l])=>`<button class="chip" data-if="${k}" aria-pressed="${S.if===k}">${l}</button>`).join("")}</div>
     </div>
     <div class="tw"><table>
       <thead><tr><th>Item</th><th class="hide-sm">Type</th><th class="r hide-sm">Pack</th><th class="r">Cost</th><th class="r">Status</th></tr></thead>
@@ -1078,14 +1078,14 @@ function updateGridRow(id){const it=S.items[id];if(!it)return;const n=needs();
   renderNav();}
 function renderItemsD(){
   const n=needs(), q=S.iq.toLowerCase();
-  const list=items().filter(([id,it])=>(!q||(it.name||"").toLowerCase().includes(q))&&(S.if==="all"||(S.if==="price"&&n.price.has(id))||(S.if==="dens"&&n.dens.has(id))||(S.if==="pkg"&&it.category==="Packaging")||(S.if==="hm"&&isPrep(it))));
+  const list=items().filter(([id,it])=>(!q||(it.name||"").toLowerCase().includes(q))&&(S.if==="all"||(S.if==="price"&&n.price.has(id))||(S.if==="dens"&&n.dens.has(id))||(S.if==="pkg"&&it.category==="Packaging")||(S.if==="sup"&&it.category==="Supplies")||(S.if==="hm"&&isPrep(it))));
   const num=(id,f,v,ph,suf,pre,extra="")=>`<div class="unitwrap ${pre?"pre":""}"><input class="in num gin" data-gi="${f}" data-id="${id}" id="g-${f}-${id}" type="number" step="any" min="0" inputmode="decimal" value="${v}" placeholder="${ph}" ${extra}><b>${suf}</b></div>`;
   view.innerHTML=`
   <div class="ph"><h1>Ingredients</h1><div class="toolbar"><span class="kbd-hint"><kbd>Tab</kbd> next cell · <kbd>/</kbd> search</span><button class="btn primary" id="add-item">${IC.plus}Add item</button></div></div>
   <div class="card">
     <div class="card-h toolbar">
       <div class="search">${IC.search}<input class="in" id="iq" placeholder="Search" value="${esc(S.iq)}"></div>
-      <div class="chips">${[["all","All"],["price",`No price · ${n.price.size}`],["dens",`Needs 100 ml weight · ${n.dens.size}`],["pkg","Packaging"],["hm","In-house"]].map(([k,l])=>`<button class="chip" data-if="${k}" aria-pressed="${S.if===k}">${l}</button>`).join("")}</div>
+      <div class="chips">${[["all","All"],["price",`No price · ${n.price.size}`],["dens",`Needs 100 ml weight · ${n.dens.size}`],["pkg","Packaging"],["sup","Supplies"],["hm","In-house"]].map(([k,l])=>`<button class="chip" data-if="${k}" aria-pressed="${S.if===k}">${l}</button>`).join("")}</div>
     </div>
     <div class="tw"><table class="grid">
       <thead><tr><th>Item</th><th>Type</th><th class="r">Pack size</th><th>Unit</th><th class="r">Pack price</th><th class="r">Usable</th><th class="r">100 ml weighs</th><th class="r">Cost</th><th>Status</th><th></th></tr></thead>
