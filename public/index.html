@@ -260,6 +260,13 @@ details.nut[open]>summary{border-bottom:1px solid var(--border)}
 .olines li{display:flex;gap:6px;padding:4px 0;border-bottom:1px dashed var(--border);font-size:13px}
 .olines li .num{margin-left:auto}
 .onote{font-size:13px;color:var(--muted);font-style:italic}
+.obuild{margin:2px 0 8px;padding:8px 10px;border-radius:10px;background:var(--bg,#f6f2ec);font-size:13px}
+.obuild .bh{display:flex;justify-content:space-between;font-weight:600;margin-bottom:4px}
+.obuild label{display:flex;align-items:center;gap:8px;padding:5px 0;cursor:pointer;min-height:32px}
+.obuild input{width:20px;height:20px;accent-color:var(--accent,#7a3b1d);flex:none}
+.obuild label.done span{text-decoration:line-through;color:var(--muted)}
+.obuild .amt{margin-left:auto;font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
+.obuild .pk{color:var(--muted)}
 .ototal{display:flex;justify-content:space-between;font-size:15px;padding-top:2px}
 .oref{font-size:13px}
 .oc-f{display:flex;justify-content:flex-end;gap:8px;padding:10px 14px;border-top:1px solid var(--border)}
@@ -1198,7 +1205,7 @@ const ST = {
   paid: { t: "Paid", k: "ok" }, preparing: { t: "Preparing", k: "ok" }, ready: { t: "Ready", k: "ok" },
   done: { t: "Picked up", k: "neutral" }, cancelled: { t: "Cancelled", k: "bad" }
 };
-const NEXT = { awaiting_payment: ["paid", "Mark paid"], payment_submitted: ["paid", "Confirm paid"], paid: ["preparing", "Start"], preparing: ["ready", "Ready"], ready: ["done", "Picked up"] };
+const NEXT = { awaiting_payment: ["paid", "Mark paid"], payment_submitted: ["paid", "Confirm paid"], paid: ["preparing", "Start making"], preparing: ["ready", "Ready"], ready: ["done", "Picked up"] };
 const ACTIVE = ["awaiting_payment", "payment_submitted", "paid", "preparing", "ready"];
 const tsMs = v => v == null ? 0 : (typeof v.toMillis === "function" ? v.toMillis() : (typeof v === "number" ? v : (v.seconds ? v.seconds * 1000 : 0)));
 const slug = s => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "drink";
@@ -1270,6 +1277,39 @@ function shrinkImage(file, maxSide, type, quality) {
 const safeImg = v => (typeof v === "string" && /^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(v) ? v : "");
 function orderRows() { return Object.entries(ORD.orders).filter(([id]) => /^[A-Za-z0-9_-]{1,64}$/.test(id)).map(([id, o]) => ({ id, o, t: tsMs(o.createdAt) })).sort((a, b) => b.t - a.t); }
 function expectedTotal(o) { let t = 0, ok = true; for (const l of o.items || []) { const m = ORD.menu[l.menuId]; if (!m || m.price == null) { ok = false; continue; } t += m.price * (+l.qty || 0); } return ok ? t : null; }
+/* ---------- build checklist: how each ordered drink is made, ticked off before "Ready" ---------- */
+// ticks live on this device only (localStorage), keyed by order id
+const BUILD_KEY = "miau-build";
+function buildTicks() { try { return JSON.parse(localStorage.getItem(BUILD_KEY) || "{}") || {}; } catch { return {}; } }
+function saveTicks(t) { try { localStorage.setItem(BUILD_KEY, JSON.stringify(t)); } catch {} }
+// steps for one order line: the drink's recipe lines in order, amounts for its size; cups/lids last
+function buildSteps(l) {
+  const d = S.drinks[l.menuId]; if (!d) return null;
+  const f = scaleOf(d), eat = [], pack = [];
+  (d.lines || []).forEach(x => { const it = S.items[x.itemId]; if (!it) return;
+    const q = qtyUsed(x, f), u = x.unit || it.unit || "";
+    (it.category === "Packaging" || it.category === "Supplies" ? pack : eat).push({ name: it.name || "", amt: q == null ? "" : roundQty(q) + " " + u, pk: it.category === "Packaging" || it.category === "Supplies" }); });
+  return eat.concat(pack);
+}
+// every step of every cup in the order: key "line.cup.step"
+function buildPlan(o) {
+  const out = []; (o.items || []).forEach((l, li) => { const st = buildSteps(l); const n = Math.max(1, Math.min(+l.qty || 1, 20));
+    for (let c = 0; c < n; c++) out.push({ li, c, n, l, steps: st }); });
+  return out;
+}
+function buildLeft(id, o) { const t = buildTicks()[id] || {}; let left = 0;
+  for (const p of buildPlan(o)) (p.steps || []).forEach((_, si) => { if (!t[p.li + "." + p.c + "." + si]) left++; }); return left; }
+function buildHtml(id, o) {
+  const t = buildTicks()[id] || {};
+  return buildPlan(o).map(p => {
+    const head = `${esc(p.l.name)}${p.l.cup ? " · " + esc(p.l.cup) + " ml" : ""}${p.n > 1 ? ` · cup ${p.c + 1} of ${p.n}` : ""}`;
+    if (!p.steps) return `<div class="obuild"><div class="bh">${head}</div><div class="faint">Recipe not found in the app. Make it from memory.</div></div>`;
+    if (!p.steps.length) return `<div class="obuild"><div class="bh">${head}</div><div class="faint">This drink has no recipe yet.</div></div>`;
+    const done = p.steps.filter((_, si) => t[p.li + "." + p.c + "." + si]).length;
+    return `<div class="obuild"><div class="bh"><span>${head}</span><span class="faint">${done}/${p.steps.length}</span></div>${p.steps.map((s, si) => { const k = p.li + "." + p.c + "." + si, on = !!t[k];
+      return `<label class="${on ? "done" : ""}${s.pk ? " pk" : ""}"><input type="checkbox" data-bstep="${id}" data-bk="${k}"${on ? " checked" : ""}><span>${si + 1}. ${esc(s.name)}</span><span class="amt">${esc(s.amt)}</span></label>`; }).join("")}</div>`;
+  }).join("");
+}
 function renderOrders() {
   const all = orderRows(), act = all.filter(r => ACTIVE.includes(r.o.status));
   const shown = all.filter(r => ORD.filter === "active" ? ACTIVE.includes(r.o.status) : ORD.filter === "done" ? r.o.status === "done" : r.o.status === "cancelled");
@@ -1296,12 +1336,13 @@ function renderOrders() {
         <div class="muted" style="font-size:13px">Pickup: ${esc(o.pickup || "ASAP")}</div>
         <ul class="olines">${(o.items || []).map(l => `<li><b>${+l.qty}×</b> ${esc(l.name)} <span class="faint">${l.cup ? esc(l.cup) + " ml" : ""}</span><span class="num">${peso((+l.price || 0) * (+l.qty || 0))}</span></li>`).join("")}</ul>
         ${o.note ? `<div class="onote">“${esc(o.note)}”</div>` : ""}
+        ${o.status === "preparing" ? buildHtml(id, o) : ""}
         <div class="ototal"><span>Total</span><b class="num">${peso(+o.total)}</b></div>
         ${mism ? `<div class="badge bad" style="white-space:normal">Total differs from menu (${peso(exp)}). Check before accepting.</div>` : ""}
         <div class="oref">${o.paymentRef ? `GCash ref <b class="mono">${esc(o.paymentRef)}</b>` : `<span class="faint">No payment reference yet</span>`}</div>
       </div>
       <div class="oc-f">${["done", "cancelled"].includes(o.status) ? "" : `<button class="btn ghost danger sm" data-ocancel="${id}" id="oc-${id}">Cancel</button>`}
-        ${nx ? `<button class="btn primary" data-onext="${id}" data-to="${nx[0]}">${nx[1]}</button>` : ""}</div>
+        ${nx ? (o.status === "preparing" && buildLeft(id, o) ? `<button class="btn primary" disabled title="Tick every step first">Ready · ${buildLeft(id, o)} to go</button>` : `<button class="btn primary" data-onext="${id}" data-to="${nx[0]}">${nx[1] === "Ready" ? "Ready for pickup" : nx[1]}</button>`) : ""}</div>
     </div>`;
   }).join("") || `<div class="card empty">${ORD.filter === "active" ? (open ? "No active orders." : "No active orders. Your shop is closed for online orders.") : "Nothing in the last 2 days."}</div>`}</div>
   ${ORD.filter !== "active" && ORD.more && ORD.loadOlder ? `<div style="text-align:center;margin-top:16px"><button class="btn" id="o-older">Load older orders</button></div>` : ""}`;
@@ -1452,6 +1493,9 @@ if (ORD.on) {
   document.addEventListener("input", e => { const el = e.target; if (el.dataset.s) saveSettings({ [el.dataset.s]: el.value }); });
   document.addEventListener("change", async e => {
     const el = e.target;
+    if (el.dataset.bstep) { const t = buildTicks(), id = el.dataset.bstep; t[id] = t[id] || {}; if (el.checked) t[id][el.dataset.bk] = 1; else delete t[id][el.dataset.bk];
+      for (const k of Object.keys(t)) if (ORD.orders[k] && !ACTIVE.includes(ORD.orders[k].status)) delete t[k];   // forget finished orders
+      saveTicks(t); const y = scrollY; renderOrders(); scrollTo(0, y); return; }
     if (el.id === "s-open") { saveSettings({ open: el.checked }); renderOnline(); return; }
     if (el.dataset.sell) { const d = S.drinks[el.dataset.sell]; d.sellOnline = el.checked; save("drinks", el.dataset.sell, true); renderOnline(); return; }
     if (el.dataset.sold) { const d = S.drinks[el.dataset.sold]; d.soldOut = el.checked; save("drinks", el.dataset.sold, true); renderOnline(); return; }
