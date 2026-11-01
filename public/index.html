@@ -394,6 +394,7 @@ document.body.classList.add("locked");
 const UNITS=["g","ml","pc"];
 const NUTS=[["kcal","Energy","kcal"],["fat","Total fat","g"],["sat","Saturated fat","g"],["carb","Total carbohydrate","g"],["sugar","Total sugars","g"],["protein","Protein","g"],["sodium","Sodium","mg"]];
 const numOrNull=v=>(v===null||v===undefined||v==="")?null:(isFinite(+v)?+v:null);
+const DEFAULT_USABLE=0.8;   // new items start at 80% usable (change per item)
 function isPrep(it){return it&&it.category==="House-made";}
 // scale factor for a drink (target volume ÷ recipe volume) or a prep (batch multiplier); 1 when unset
 function scaleOf(d){
@@ -923,8 +924,8 @@ document.addEventListener("click",e=>{
   if(t.dataset.focus){const el=document.getElementById(t.dataset.focus);if(el){el.focus();el.classList.add("hl");}return;}
   if(t.id==="new-drink"){const id=rid("d");S.drinks[id]={name:"",baseVol:null,targetVol:null,price:null,vat:0.12,target:0.30,lines:[{itemId:"",qty:null}]};save("drinks",id,true);go("drink",id);setTimeout(()=>$("#d-name")?.focus(),30);return;}
   if(t.id==="make-reset"){const m=makeTicks();delete m[S.sel];saveMake(m);const y=scrollY;render();scrollTo(0,y);return;}
-  if(t.id==="new-prep"){const id=rid("hm");S.items[id]={name:"",category:"House-made",unit:"g",yieldQty:null,batchMult:1,lines:[{itemId:"",qty:null,unit:"g"}]};save("items",id,true);go("prep",id);setTimeout(()=>$("#d-name")?.focus(),30);return;}
-  if(t.id==="add-item"){const id=rid("i");S.items[id]={name:"",category:"Ingredient",unit:"g",packSize:null,packPrice:null,yield:1,density:null};save("items",id,true);
+  if(t.id==="new-prep"){const id=rid("hm");S.items[id]={name:"",category:"House-made",unit:"g",yieldQty:null,batchMult:1,yield:DEFAULT_USABLE,lines:[{itemId:"",qty:null,unit:"g"}]};save("items",id,true);go("prep",id);setTimeout(()=>$("#d-name")?.focus(),30);return;}
+  if(t.id==="add-item"){const id=rid("i");S.items[id]={name:"",category:"Ingredient",unit:"g",packSize:null,packPrice:null,yield:DEFAULT_USABLE,density:null};save("items",id,true);
     if(isDesk()){S.if="all";S.iq="";renderItems();const el=document.getElementById("g-name-"+id);if(el){el.focus();el.scrollIntoView({block:"center"});el.closest("tr").classList.add("hl");}}else openDrawer(id);return;}
   if(t.id==="dup"){const c=cur(),id=rid("d"),src=JSON.parse(JSON.stringify(c.doc));src.name=(src.name||"Drink")+" copy";S.drinks[id]=src;save("drinks",id,true);go("drink",id);return;}
   if(t.id==="del"){const c=cur();arm("del:"+c.id,"#del",()=>{remove(c.kind==="drink"?"drinks":"items",c.id);go(c.kind==="drink"?"menu":"preps");});return;}
@@ -986,7 +987,7 @@ document.addEventListener("change",e=>{
   if(S.view!=="drink"&&S.view!=="prep") return;
   const c=cur(), col=c.kind==="drink"?"drinks":"items";
   if(el.dataset.f==="itemId"){const i=+el.closest("[data-line]").dataset.line,l=c.doc.lines[i];
-    if(el.value==="__new"){const id=rid("i");S.items[id]={name:"",category:"Ingredient",unit:l.unit||"g",packSize:null,packPrice:null,yield:1,density:null};save("items",id,true);l.itemId=id;l.unit=l.unit||"g";save(col,c.id,true);render();openDrawer(id);return;}
+    if(el.value==="__new"){const id=rid("i");S.items[id]={name:"",category:"Ingredient",unit:l.unit||"g",packSize:null,packPrice:null,yield:DEFAULT_USABLE,density:null};save("items",id,true);l.itemId=id;l.unit=l.unit||"g";save(col,c.id,true);render();openDrawer(id);return;}
     l.itemId=el.value;const it=S.items[el.value];if(it)l.unit=it.unit;save(col,c.id,true);render();return;}
   if(el.dataset.f==="unit"){const i=+el.closest("[data-line]").dataset.line;c.doc.lines[i].unit=el.value;save(col,c.id,true);recompute();return;}
   if(el.dataset.f==="scales"){const i=+el.closest("[data-line]").dataset.line;c.doc.lines[i].fixed=!el.checked;save(col,c.id,true);recompute();return;}
