@@ -192,8 +192,8 @@ document.addEventListener("change", async e => {
   try {
     const data = JSON.parse(await f.text());
     if (data && data.kind === "miau-pack" && data.items && typeof data.items === "object") {
-      pendingImport = data; const n = Object.values(data.items);
-      $("#acct-msg").innerHTML = `Add ${n.length} item${n.length === 1 ? "" : "s"}: ${n.map(x => esc(x.name || "")).join(", ")}. Items you already have (same name) get the new pack size and price; nothing else is changed. <button class="btn sm primary" id="acct-import-go">Add</button>`;
+      pendingImport = data; const n = Object.values(data.items), dn = Object.values(data.drinks || {});
+      $("#acct-msg").innerHTML = `Add ${n.length} item${n.length === 1 ? "" : "s"}: ${n.map(x => esc(x.name || "")).join(", ")}.${dn.length ? ` Drinks: ${dn.map(x => esc(x.name || "") + (x.targetVol ? " " + esc(x.targetVol) + " ml" : "")).join(", ")}.` : ""} Items you already have (same name) get the new pack size and price; nothing else is changed. <button class="btn sm primary" id="acct-import-go">Add</button>`;
       return;
     }
     if (!data || typeof data.items !== "object" || typeof data.drinks !== "object") throw 0;
@@ -204,6 +204,7 @@ document.addEventListener("change", async e => {
 // A recipe pack: { kind:"miau-pack", items:{ localId:{name,category,unit,packSize,packPrice,…, lines:[{itemId:localId,qty,unit}]} } }
 // Matches existing items by name (no duplicates); bought items only get pack size/price updated, house-made recipes get their recipe.
 const PACK_BUY = ["packSize", "packPrice"], PACK_NEW = ["name", "category", "unit", "packSize", "packPrice", "yield", "density", "note", "nutr", "nutrManual", "yieldQty", "batchMult", "lines"];
+const PACK_DRINK = ["name", "targetVol", "baseVol", "price", "vat", "target", "note"];
 const normName = s => String(s || "").trim().toLowerCase().replace(/\s+/g, " ");
 async function addPack(pack) {
   const msg = $("#acct-msg");
@@ -227,8 +228,24 @@ async function addPack(pack) {
       if (prep) body.lines = it.lines.map(l => ({ itemId: idMap[l.itemId] || "", qty: +l.qty, unit: l.unit }));
       out[id] = body; old ? updated++ : added++;
     }
-    const b = writeBatch(db); Object.entries(out).forEach(([id, body]) => b.set(doc(db, "shops", SHOP_ID, "items", id), body)); await b.commit();
-    msg.textContent = `Done: ${added} added, ${updated} updated.`; pendingImport = null;
+    // drinks: matched by name + cup size (no duplicates); lines point at pack items or existing items by name
+    const outD = {}, missing = new Set(); let dAdded = 0, dUpdated = 0;
+    if (pack.drinks && typeof pack.drinks === "object") {
+      const haveD = {}; (await getDocs(collection(db, "shops", SHOP_ID, "drinks"))).forEach(d => { haveD[d.id] = d.data(); });
+      for (const [pid, d] of Object.entries(pack.drinks)) {
+        if (!d || !normName(d.name)) continue;
+        let id = Object.keys(haveD).find(k => normName(haveD[k].name) === normName(d.name) && +haveD[k].targetVol === +d.targetVol);
+        const old = id ? haveD[id] : null;
+        if (!id) { id = (String(pid).replace(/[^a-z0-9-]/gi, "").slice(0, 40) || "dr"); while (haveD[id] || outD[id]) id += "-" + Math.random().toString(36).slice(2, 5); }
+        const body = Object.assign({ vat: 0.12, target: 0.3 }, old || {});
+        for (const k of PACK_DRINK) if (d[k] !== undefined) body[k] = d[k];
+        body.lines = (d.lines || []).map(l => { const o = { itemId: idMap[l.itemId] || byName.get(normName(l.itemId)) || "", qty: +l.qty, unit: l.unit }; if (!o.itemId) missing.add(l.itemId); if (l.t) o.t = l.t; if (l.t === "same" || l.t === "size") o.fixed = true; return o; });
+        outD[id] = body; old ? dUpdated++ : dAdded++;
+      }
+    }
+    const b = writeBatch(db); Object.entries(out).forEach(([id, body]) => b.set(doc(db, "shops", SHOP_ID, "items", id), body));
+    Object.entries(outD).forEach(([id, body]) => b.set(doc(db, "shops", SHOP_ID, "drinks", id), body)); await b.commit();
+    msg.textContent = `Done: ${added} added, ${updated} updated` + (dAdded + dUpdated ? ` · drinks: ${dAdded} added, ${dUpdated} updated.` : ".") + (missing.size ? ` Not found: ${[...missing].join(", ")}. Add those items, then pick them in the recipe.` : ""); pendingImport = null;
   } catch (e) { msg.textContent = e.code === "permission-denied" ? "No permission to write." : "Couldn't add. Check your connection and try again."; }
 }
 async function importNow() {
