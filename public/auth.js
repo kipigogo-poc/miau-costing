@@ -146,7 +146,7 @@ function openSheet() {
       <div class="fld"><span>Backup</span>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn" id="acct-export">Download backup</button>
-          <label class="btn" for="acct-file" style="cursor:pointer">Restore from file</label>
+          <label class="btn" for="acct-file" style="cursor:pointer">Add or restore from file</label>
           <input type="file" id="acct-file" accept="application/json,.json" hidden>
         </div>
         <div class="faint" id="acct-msg" style="font-size:12px;min-height:16px"></div>
@@ -191,13 +191,49 @@ document.addEventListener("change", async e => {
   const f = e.target.files[0]; if (!f) return;
   try {
     const data = JSON.parse(await f.text());
+    if (data && data.kind === "miau-pack" && data.items && typeof data.items === "object") {
+      pendingImport = data; const n = Object.values(data.items);
+      $("#acct-msg").innerHTML = `Add ${n.length} item${n.length === 1 ? "" : "s"}: ${n.map(x => esc(x.name || "")).join(", ")}. Items you already have (same name) get the new pack size and price; nothing else is changed. <button class="btn sm primary" id="acct-import-go">Add</button>`;
+      return;
+    }
     if (!data || typeof data.items !== "object" || typeof data.drinks !== "object") throw 0;
     pendingImport = data;
     $("#acct-msg").innerHTML = `${Object.keys(data.items).length} items, ${Object.keys(data.drinks).length} drinks. Items with the same id will be replaced. <button class="btn sm primary" id="acct-import-go">Restore</button>`;
   } catch { $("#acct-msg").textContent = "That file isn't a Drink Costing backup."; }
 });
+// A recipe pack: { kind:"miau-pack", items:{ localId:{name,category,unit,packSize,packPrice,…, lines:[{itemId:localId,qty,unit}]} } }
+// Matches existing items by name (no duplicates); bought items only get pack size/price updated, house-made recipes get their recipe.
+const PACK_BUY = ["packSize", "packPrice"], PACK_NEW = ["name", "category", "unit", "packSize", "packPrice", "yield", "density", "note", "nutr", "nutrManual", "yieldQty", "batchMult", "lines"];
+const normName = s => String(s || "").trim().toLowerCase().replace(/\s+/g, " ");
+async function addPack(pack) {
+  const msg = $("#acct-msg");
+  try {
+    const have = {}; (await getDocs(collection(db, "shops", SHOP_ID, "items"))).forEach(d => { have[d.id] = d.data(); });
+    const byName = new Map(Object.entries(have).map(([id, it]) => [normName(it.name), id]));
+    const idMap = {}, out = {}; let added = 0, updated = 0;
+    for (const [pid, it] of Object.entries(pack.items)) {
+      if (!it || !normName(it.name)) continue;
+      let id = [it.name, ...(Array.isArray(it.also) ? it.also : [])].map(n => byName.get(normName(n))).find(Boolean);
+      if (!id) { id = String(pid).replace(/[^a-z0-9-]/gi, "").slice(0, 40) || "pk"; while (have[id] || out[id]) id += "-" + Math.random().toString(36).slice(2, 5); }
+      idMap[pid] = id;
+    }
+    for (const [pid, it] of Object.entries(pack.items)) {
+      const id = idMap[pid]; if (!id) continue;
+      const prep = Array.isArray(it.lines), old = have[id];
+      const keys = old && !prep ? PACK_BUY : PACK_NEW, body = old ? Object.assign({}, old) : {};
+      // a bought item you already have: only take the pack size and price together (a size without its price would change your cost)
+      if (old && !prep) { if (it.packPrice != null && it.packSize != null) { body.packSize = it.packSize; body.packPrice = it.packPrice; } }
+      else for (const k of keys) if (it[k] !== undefined) body[k] = it[k];
+      if (prep) body.lines = it.lines.map(l => ({ itemId: idMap[l.itemId] || "", qty: +l.qty, unit: l.unit }));
+      out[id] = body; old ? updated++ : added++;
+    }
+    const b = writeBatch(db); Object.entries(out).forEach(([id, body]) => b.set(doc(db, "shops", SHOP_ID, "items", id), body)); await b.commit();
+    msg.textContent = `Done: ${added} added, ${updated} updated.`; pendingImport = null;
+  } catch (e) { msg.textContent = e.code === "permission-denied" ? "No permission to write." : "Couldn't add. Check your connection and try again."; }
+}
 async function importNow() {
   if (!pendingImport) return;
+  if (pendingImport.kind === "miau-pack") return addPack(pendingImport);
   const ops = [];
   for (const c of BACKUP) for (const [id, body] of Object.entries(pendingImport[c] || {})) ops.push([c, id, body]);
   try {
