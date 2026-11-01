@@ -720,15 +720,18 @@ function subSteps(it,q,lineUnit){
   return (it.lines||[]).map(l=>{const s=S.items[l.itemId],u=qtyUsed(l,f);return s&&u!=null?{name:s.name||"",amt:roundQty(u*k)+" "+(l.unit||s.unit||"")}:null;}).filter(Boolean);
 }
 function makeCard(id,d){
-  if(S.view!=="prep") return "";
-  const f=scaleOf(d), t=makeTicks()[id]||{}, ls=(d.lines||[]).map((l,i)=>({l,i,it:S.items[l.itemId]})).filter(x=>x.it);
+  if(S.view!=="prep"&&S.view!=="drink") return "";
+  const drink=S.view==="drink", key=(drink?"d:":"")+id, f=scaleOf(d), t=makeTicks()[key]||{};
+  let ls=(d.lines||[]).map((l,i)=>({l,i,it:S.items[l.itemId]})).filter(x=>x.it);
+  if(drink){const pk=x=>x.it.category==="Packaging"||x.it.category==="Supplies";ls=ls.filter(x=>!pk(x)).concat(ls.filter(pk));}   // cups, lids last
   if(!ls.length) return "";
-  const done=ls.filter(x=>t[x.i]).length, yq=+d.yieldQty*f;
-  return `<div class="card makebox"><div class="card-h"><h2>Make a batch</h2><span class="muted" style="font-size:12px">${f!==1?"× "+(+f.toFixed(2))+" · ":""}${yq>0?"makes "+roundQty(yq)+" "+esc(d.unit)+" · ":""}${done}/${ls.length}</span></div>
-    <div class="obuild" style="margin:0 16px 12px">${ls.map(({l,i,it},n)=>{const q=qtyUsed(l,f),on=!!t[i];
-      return `<label class="${on?"done":""}"><input type="checkbox" data-mstep="${id}" data-mk="${i}"${on?" checked":""}><span>${n+1}. ${esc(it.name||"")}</span><span class="amt">${q==null?"":roundQty(q)+" "+esc(l.unit||it.unit||"")}</span></label>`;}).join("")}
+  const done=ls.filter(x=>t[x.i]).length, yq=+d.yieldQty*f, cupMl=drink?cupOf(d):0;
+  const sub=drink?(cupMl?cupMl+" ml cup · ":""):(f!==1?"× "+(+f.toFixed(2))+" · ":"")+(yq>0?"makes "+roundQty(yq)+" "+esc(d.unit)+" · ":"");
+  return `<div class="card makebox"><div class="card-h"><h2>${drink?"How to make":"Make a batch"}</h2><span class="muted" style="font-size:12px">${sub}${done}/${ls.length}</span></div>
+    <div class="obuild" style="margin:0 16px 12px">${ls.map(({l,i,it},n)=>{const q=qtyUsed(l,f),on=!!t[i],u=l.unit||it.unit||"",sb=drink&&q!=null?subSteps(it,q,u):[];
+      return `<label class="${on?"done":""}"><input type="checkbox" data-mstep="${key}" data-mk="${i}"${on?" checked":""}><span>${n+1}. ${esc(it.name||"")}${sb.length?`<small class="bsub">${sb.map(x=>esc(x.amt)+" "+esc(x.name)).join(" + ")}</small>`:""}</span><span class="amt">${q==null?"":roundQty(q)+" "+esc(u)}</span></label>`;}).join("")}
       ${d.note?`<div class="faint" style="margin-top:6px">${esc(d.note)}</div>`:""}
-      <div style="display:flex;justify-content:flex-end;margin-top:8px"><button class="btn sm ${done===ls.length?"primary":""}" id="make-reset">${done===ls.length?"Done · start a new batch":"Clear ticks"}</button></div></div></div>`;
+      <div style="display:flex;justify-content:flex-end;margin-top:8px"><button class="btn sm ${done===ls.length?"primary":""}" id="make-reset" data-mkey="${key}">${done===ls.length?(drink?"Done · next cup":"Done · start a new batch"):"Clear ticks"}</button></div></div></div>`;
 }
 function renderDetail(kind){return isDesk()?renderDetailD(kind):renderDetailM(kind);}
 function renderDetailM(kind){
@@ -790,7 +793,7 @@ function renderDetailM(kind){
         ${lines||'<div class="empty">No ingredients yet.</div>'}
         <div class="addrow"><button class="btn sm" id="add-line">${IC.plus}Add ingredient</button></div>
       </div>
-      ${isD?"":makeCard(c.id,d)}
+      ${makeCard(c.id,d)}
     </div>
     <div class="sticky">${econ}
       <details class="card nut" id="nutbox"${S.nutOpen?" open":""}><summary>Nutrition<span class="muted" style="font-weight:400;font-size:12px">${isD?"per cup":"per 100 "+esc(d.unit)}</span></summary>
@@ -832,7 +835,7 @@ function subHTML(l,r,i,f){
   return parts.join("");
 }
 function recompute(){
-  {const mb=view.querySelector(".makebox");if(mb&&S.view==="prep"&&S.items[S.sel]){const h=makeCard(S.sel,S.items[S.sel]);if(h){const tmp=document.createElement("div");tmp.innerHTML=h;mb.replaceWith(tmp.firstElementChild);}}}
+  {const mb=view.querySelector(".makebox");const md=S.view==="prep"?S.items[S.sel]:S.view==="drink"?S.drinks[S.sel]:null;if(mb&&md){const h=makeCard(S.sel,md);if(h){const tmp=document.createElement("div");tmp.innerHTML=h;mb.replaceWith(tmp.firstElementChild);}}}
   if(S.view!=="drink"&&S.view!=="prep") return;
   const c=cur(), d=c.doc, f=scaleOf(d), o=k=>view.querySelector(`[data-out="${k}"]`);
   const r=c.kind==="drink"?drinkCalc(d,S.items):recipeCost(d.lines,S.items,1,f);
@@ -923,7 +926,7 @@ document.addEventListener("click",e=>{
   if(t.dataset.fix){const it=S.items[t.dataset.fix];if(t.dataset.field==="open"&&isPrep(it)){go("prep",t.dataset.fix);return;}openDrawer(t.dataset.fix,t.dataset.field);return;}
   if(t.dataset.focus){const el=document.getElementById(t.dataset.focus);if(el){el.focus();el.classList.add("hl");}return;}
   if(t.id==="new-drink"){const id=rid("d");S.drinks[id]={name:"",baseVol:null,targetVol:null,price:null,vat:0.12,target:0.30,lines:[{itemId:"",qty:null}]};save("drinks",id,true);go("drink",id);setTimeout(()=>$("#d-name")?.focus(),30);return;}
-  if(t.id==="make-reset"){const m=makeTicks();delete m[S.sel];saveMake(m);const y=scrollY;render();scrollTo(0,y);return;}
+  if(t.id==="make-reset"){const m=makeTicks();delete m[t.dataset.mkey||S.sel];saveMake(m);const y=scrollY;render();scrollTo(0,y);return;}
   if(t.id==="new-prep"){const id=rid("hm");S.items[id]={name:"",category:"House-made",unit:"g",yieldQty:null,batchMult:1,yield:DEFAULT_USABLE,lines:[{itemId:"",qty:null,unit:"g"}]};save("items",id,true);go("prep",id);setTimeout(()=>$("#d-name")?.focus(),30);return;}
   if(t.id==="add-item"){const id=rid("i");S.items[id]={name:"",category:"Ingredient",unit:"g",packSize:null,packPrice:null,yield:DEFAULT_USABLE,density:null};save("items",id,true);
     if(isDesk()){S.if="all";S.iq="";renderItems();const el=document.getElementById("g-name-"+id);if(el){el.focus();el.scrollIntoView({block:"center"});el.closest("tr").classList.add("hl");}}else openDrawer(id);return;}
@@ -1192,14 +1195,14 @@ function renderDetailD(kind){
   ${isD?`<div id="pc-box" class="card" hidden style="padding:12px 16px;margin:-4px 0 16px;max-width:520px"></div>`:""}
   <div class="dgrid">
     ${stdBox(d)?`<div style="grid-column:1/-1">${stdBox(d)}</div>`:""}
-    ${isD?"":'<div style="display:flex;flex-direction:column;gap:16px;min-width:0">'}<div class="card rt">
+    <div style="display:flex;flex-direction:column;gap:16px;min-width:0"><div class="card rt">
       <div class="card-h"><h2>Recipe</h2><span class="muted" data-out="count" style="font-size:12px"></span></div>
       <div class="rscroll">
         <div class="rh"><span>Ingredient</span><span class="r">Amount</span><span>Unit</span><span class="r">Used</span><span class="r">Cost / unit</span><span class="r">Cost</span><span>${isD?"Sizes":"Scales"}</span><span>Status</span><span></span></div>
         ${rows||'<div class="empty">No ingredients yet.</div>'}
       </div>
       <div class="addrow"><button class="btn sm" id="add-line">${IC.plus}Add ingredient</button></div>
-    </div>${isD?"":makeCard(c.id,d)+"</div>"}
+    </div>${makeCard(c.id,d)}</div>
     <div class="side-col">
       <div class="card"><div class="card-h"><h2>${isD?"Size & targets":"Batch"}</h2></div><div class="card-b setrow two">${settings}</div></div>
       <details class="card nut" id="nutbox" open><summary>Nutrition<span class="muted" style="font-weight:400;font-size:12px">${isD?"per cup":"per 100 "+esc(d.unit)}</span></summary>
