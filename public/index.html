@@ -661,12 +661,32 @@ function renderMenuM(){
 }
 
 /* ---------- Ingredients ---------- */
+/* ---------- download the shopping list (everything you buy) as a spreadsheet for suppliers ---------- */
+function sourcingRows(){
+  const used={};   // item id -> drink / recipe names that use it (through house-made recipes too)
+  const walk=(lines,label,depth)=>{for(const l of lines||[]){const it=S.items[l.itemId];if(!it)continue;(used[l.itemId]=used[l.itemId]||new Set()).add(label);if(isPrep(it)&&depth<4)walk(it.lines,label,depth+1);}};
+  Object.values(S.drinks).forEach(d=>walk(d.lines,d.name||"Drink",0));
+  Object.values(S.items).filter(isPrep).forEach(p=>walk(p.lines,(p.name||"Recipe")+" (in-house)",0));
+  const per=it=>{const r=baseRate(it,S.items,0);if(r==null)return null;const u=it.unit==="g"?["kg",1000]:it.unit==="ml"?["L",1000]:["pc",1];return [(r*u[1]).toFixed(2),u[0]];};
+  const rows=Object.entries(S.items).filter(([,it])=>!isPrep(it)&&(it.name||"").trim())
+    .sort(([,a],[,b])=>(ORDER[a.category]??9)-(ORDER[b.category]??9)||(a.name||"").localeCompare(b.name||""))
+    .map(([id,it])=>{const names=[...(used[id]||[])].sort();return [it.name,CAT_LABEL[it.category]||it.category||"",it.unit||"",it.packSize??"",it.packPrice??"",...(per(it)||["",""]),
+      it.yield==null||it.yield===""?"":Math.round(+it.yield*100)+"%",it.packPrice==null||it.packPrice===""?"No price yet":"",names.length,names.join(", "),it.note||"","","",""];});
+  return [["Item","Type","Unit","Pack size","Pack price (₱)","Cost after waste (₱)","Per","Usable","Status","Used in (count)","Used in","Note","Supplier","Supplier price (₱)","Supplier pack size"],...rows];
+}
+function downloadSourcing(){
+  const cell=v=>{const t=String(v??"");return /[",\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t;};
+  const csv="\ufeff"+sourcingRows().map(r=>r.map(cell).join(",")).join("\r\n");   // BOM so Excel shows ₱ correctly
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
+  a.download="miau-ingredients-"+new Date().toISOString().slice(0,10)+".csv";document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);
+}
 function renderItems(){return isDesk()?renderItemsD():renderItemsM();}
 function renderItemsM(){
   const n=needs(), q=S.iq.toLowerCase();
   const list=items().filter(([id,it])=>(!q||(it.name||"").toLowerCase().includes(q))&&(S.if==="all"||(S.if==="price"&&n.price.has(id))||(S.if==="dens"&&n.dens.has(id))||(S.if==="pkg"&&it.category==="Packaging")||(S.if==="sup"&&it.category==="Supplies")||(S.if==="hm"&&isPrep(it))));
   view.innerHTML=`
-  <div class="ph"><h1>Ingredients</h1><button class="btn primary" id="add-item">${IC.plus}Add item</button></div>
+  <div class="ph"><h1>Ingredients</h1><div class="toolbar"><button class="btn" id="dl-items">Download list</button><button class="btn primary" id="add-item">${IC.plus}Add item</button></div></div>
   <div class="card">
     <div class="card-h toolbar">
       <div class="search">${IC.search}<input class="in" id="iq" placeholder="Search" value="${esc(S.iq)}"></div>
@@ -926,6 +946,7 @@ document.addEventListener("click",e=>{
   if(t.dataset.fix){const it=S.items[t.dataset.fix];if(t.dataset.field==="open"&&isPrep(it)){go("prep",t.dataset.fix);return;}openDrawer(t.dataset.fix,t.dataset.field);return;}
   if(t.dataset.focus){const el=document.getElementById(t.dataset.focus);if(el){el.focus();el.classList.add("hl");}return;}
   if(t.id==="new-drink"){const id=rid("d");S.drinks[id]={name:"",baseVol:null,targetVol:null,price:null,vat:0.12,target:0.30,lines:[{itemId:"",qty:null}]};save("drinks",id,true);go("drink",id);setTimeout(()=>$("#d-name")?.focus(),30);return;}
+  if(t.id==="dl-items"){downloadSourcing();return;}
   if(t.id==="make-reset"){const m=makeTicks();delete m[t.dataset.mkey||S.sel];saveMake(m);const y=scrollY;render();scrollTo(0,y);return;}
   if(t.id==="new-prep"){const id=rid("hm");S.items[id]={name:"",category:"House-made",unit:"g",yieldQty:null,batchMult:1,yield:DEFAULT_USABLE,lines:[{itemId:"",qty:null,unit:"g"}]};save("items",id,true);go("prep",id);setTimeout(()=>$("#d-name")?.focus(),30);return;}
   if(t.id==="add-item"){const id=rid("i");S.items[id]={name:"",category:"Ingredient",unit:"g",packSize:null,packPrice:null,yield:DEFAULT_USABLE,density:null};save("items",id,true);
@@ -1125,7 +1146,7 @@ function renderItemsD(){
   const list=items().filter(([id,it])=>(!q||(it.name||"").toLowerCase().includes(q))&&(S.if==="all"||(S.if==="price"&&n.price.has(id))||(S.if==="dens"&&n.dens.has(id))||(S.if==="pkg"&&it.category==="Packaging")||(S.if==="sup"&&it.category==="Supplies")||(S.if==="hm"&&isPrep(it))));
   const num=(id,f,v,ph,suf,pre,extra="")=>`<div class="unitwrap ${pre?"pre":""}"><input class="in num gin" data-gi="${f}" data-id="${id}" id="g-${f}-${id}" type="number" step="any" min="0" inputmode="decimal" value="${v}" placeholder="${ph}" ${extra}><b>${suf}</b></div>`;
   view.innerHTML=`
-  <div class="ph"><h1>Ingredients</h1><div class="toolbar"><span class="kbd-hint"><kbd>Tab</kbd> next cell · <kbd>/</kbd> search</span><button class="btn primary" id="add-item">${IC.plus}Add item</button></div></div>
+  <div class="ph"><h1>Ingredients</h1><div class="toolbar"><span class="kbd-hint"><kbd>Tab</kbd> next cell · <kbd>/</kbd> search</span><button class="btn" id="dl-items" title="Spreadsheet of everything you buy, for getting quotes from suppliers">Download list</button><button class="btn primary" id="add-item">${IC.plus}Add item</button></div></div>
   <div class="card">
     <div class="card-h toolbar">
       <div class="search">${IC.search}<input class="in" id="iq" placeholder="Search" value="${esc(S.iq)}"></div>
