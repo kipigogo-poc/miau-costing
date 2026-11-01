@@ -267,6 +267,8 @@ details.nut[open]>summary{border-bottom:1px solid var(--border)}
 .obuild label.done span{text-decoration:line-through;color:var(--muted)}
 .obuild .amt{margin-left:auto;font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
 .obuild .pk{color:var(--muted)}
+.obuild .bsub{display:block;font-size:12px;color:var(--muted);text-decoration:none}
+.makebox .card-h{display:flex;justify-content:space-between;align-items:baseline}
 .ototal{display:flex;justify-content:space-between;font-size:15px;padding-top:2px}
 .oref{font-size:13px}
 .oc-f{display:flex;justify-content:flex-end;gap:8px;padding:10px 14px;border-top:1px solid var(--border)}
@@ -703,6 +705,30 @@ function itemOptions(sel,exclude){
   if(sel&&!S.items[sel]) h+=`<option value="${esc(sel)}" selected>(deleted)</option>`;
   return h+'<option value="__new">+ New ingredient…</option>';
 }
+/* ---------- making house-made items: a ticked checklist per batch, and what a part-batch needs ---------- */
+const MAKE_KEY="miau-make";
+function makeTicks(){try{return JSON.parse(localStorage.getItem(MAKE_KEY)||"{}")||{};}catch{return {};}}
+function saveMake(t){try{localStorage.setItem(MAKE_KEY,JSON.stringify(t));}catch{}}
+// ingredients for qty q (in the line's unit) of house-made item it: scaled from its batch, allowing for usable %
+function subSteps(it,q,lineUnit){
+  if(!isPrep(it)||!(q>0)) return [];
+  const f=scaleOf(it), yq=+it.yieldQty*f, use=(it.yield===""||it.yield==null)?1:+it.yield;
+  const r=lineRate({itemId:"x",unit:lineUnit},Object.assign({},S.items,{x:it}),0);
+  if(!(yq>0)||!(use>0)||!(r.factor>0)) return [];
+  const k=q*r.factor/(yq*use);
+  return (it.lines||[]).map(l=>{const s=S.items[l.itemId],u=qtyUsed(l,f);return s&&u!=null?{name:s.name||"",amt:roundQty(u*k)+" "+(l.unit||s.unit||"")}:null;}).filter(Boolean);
+}
+function makeCard(id,d){
+  if(S.view!=="prep") return "";
+  const f=scaleOf(d), t=makeTicks()[id]||{}, ls=(d.lines||[]).map((l,i)=>({l,i,it:S.items[l.itemId]})).filter(x=>x.it);
+  if(!ls.length) return "";
+  const done=ls.filter(x=>t[x.i]).length, yq=+d.yieldQty*f;
+  return `<div class="card makebox"><div class="card-h"><h2>Make a batch</h2><span class="muted" style="font-size:12px">${f!==1?"× "+(+f.toFixed(2))+" · ":""}${yq>0?"makes "+roundQty(yq)+" "+esc(d.unit)+" · ":""}${done}/${ls.length}</span></div>
+    <div class="obuild" style="margin:0 16px 12px">${ls.map(({l,i,it},n)=>{const q=qtyUsed(l,f),on=!!t[i];
+      return `<label class="${on?"done":""}"><input type="checkbox" data-mstep="${id}" data-mk="${i}"${on?" checked":""}><span>${n+1}. ${esc(it.name||"")}</span><span class="amt">${q==null?"":roundQty(q)+" "+esc(l.unit||it.unit||"")}</span></label>`;}).join("")}
+      ${d.note?`<div class="faint" style="margin-top:6px">${esc(d.note)}</div>`:""}
+      <div style="display:flex;justify-content:flex-end;margin-top:8px"><button class="btn sm ${done===ls.length?"primary":""}" id="make-reset">${done===ls.length?"Done · start a new batch":"Clear ticks"}</button></div></div></div>`;
+}
 function renderDetail(kind){return isDesk()?renderDetailD(kind):renderDetailM(kind);}
 function renderDetailM(kind){
   const c=cur(), d=c.doc, isD=kind==="drink";
@@ -763,6 +789,7 @@ function renderDetailM(kind){
         ${lines||'<div class="empty">No ingredients yet.</div>'}
         <div class="addrow"><button class="btn sm" id="add-line">${IC.plus}Add ingredient</button></div>
       </div>
+      ${isD?"":makeCard(c.id,d)}
     </div>
     <div class="sticky">${econ}
       <details class="card nut" id="nutbox"${S.nutOpen?" open":""}><summary>Nutrition<span class="muted" style="font-weight:400;font-size:12px">${isD?"per cup":"per 100 "+esc(d.unit)}</span></summary>
@@ -804,6 +831,7 @@ function subHTML(l,r,i,f){
   return parts.join("");
 }
 function recompute(){
+  {const mb=view.querySelector(".makebox");if(mb&&S.view==="prep"&&S.items[S.sel]){const h=makeCard(S.sel,S.items[S.sel]);if(h){const tmp=document.createElement("div");tmp.innerHTML=h;mb.replaceWith(tmp.firstElementChild);}}}
   if(S.view!=="drink"&&S.view!=="prep") return;
   const c=cur(), d=c.doc, f=scaleOf(d), o=k=>view.querySelector(`[data-out="${k}"]`);
   const r=c.kind==="drink"?drinkCalc(d,S.items):recipeCost(d.lines,S.items,1,f);
@@ -894,6 +922,7 @@ document.addEventListener("click",e=>{
   if(t.dataset.fix){const it=S.items[t.dataset.fix];if(t.dataset.field==="open"&&isPrep(it)){go("prep",t.dataset.fix);return;}openDrawer(t.dataset.fix,t.dataset.field);return;}
   if(t.dataset.focus){const el=document.getElementById(t.dataset.focus);if(el){el.focus();el.classList.add("hl");}return;}
   if(t.id==="new-drink"){const id=rid("d");S.drinks[id]={name:"",baseVol:null,targetVol:null,price:null,vat:0.12,target:0.30,lines:[{itemId:"",qty:null}]};save("drinks",id,true);go("drink",id);setTimeout(()=>$("#d-name")?.focus(),30);return;}
+  if(t.id==="make-reset"){const m=makeTicks();delete m[S.sel];saveMake(m);const y=scrollY;render();scrollTo(0,y);return;}
   if(t.id==="new-prep"){const id=rid("hm");S.items[id]={name:"",category:"House-made",unit:"g",yieldQty:null,batchMult:1,lines:[{itemId:"",qty:null,unit:"g"}]};save("items",id,true);go("prep",id);setTimeout(()=>$("#d-name")?.focus(),30);return;}
   if(t.id==="add-item"){const id=rid("i");S.items[id]={name:"",category:"Ingredient",unit:"g",packSize:null,packPrice:null,yield:1,density:null};save("items",id,true);
     if(isDesk()){S.if="all";S.iq="";renderItems();const el=document.getElementById("g-name-"+id);if(el){el.focus();el.scrollIntoView({block:"center"});el.closest("tr").classList.add("hl");}}else openDrawer(id);return;}
@@ -947,6 +976,7 @@ document.addEventListener("input",e=>{
   if(el.dataset.f==="qty"){const i=+el.closest("[data-line]").dataset.line;c.doc.lines[i].qty=readVal(el);save(col,c.id);recompute();}
 });
 document.addEventListener("change",e=>{
+  if(e.target.dataset&&e.target.dataset.mstep){const t=makeTicks(),id=e.target.dataset.mstep;t[id]=t[id]||{};if(e.target.checked)t[id][e.target.dataset.mk]=1;else delete t[id][e.target.dataset.mk];saveMake(t);const y=scrollY;render();scrollTo(0,y);return;}
   const el=e.target;
   if(el.dataset.gs){const id=el.dataset.id,it=S.items[id];if(!it)return;it[el.dataset.gs]=el.value;
     if(el.dataset.gs==="category"&&isPrep(it)&&!it.lines){it.lines=[];it.yieldQty=null;it.batchMult=1;}
@@ -1161,14 +1191,14 @@ function renderDetailD(kind){
   ${isD?`<div id="pc-box" class="card" hidden style="padding:12px 16px;margin:-4px 0 16px;max-width:520px"></div>`:""}
   <div class="dgrid">
     ${stdBox(d)?`<div style="grid-column:1/-1">${stdBox(d)}</div>`:""}
-    <div class="card rt">
+    ${isD?"":'<div style="display:flex;flex-direction:column;gap:16px;min-width:0">'}<div class="card rt">
       <div class="card-h"><h2>Recipe</h2><span class="muted" data-out="count" style="font-size:12px"></span></div>
       <div class="rscroll">
         <div class="rh"><span>Ingredient</span><span class="r">Amount</span><span>Unit</span><span class="r">Used</span><span class="r">Cost / unit</span><span class="r">Cost</span><span>${isD?"Sizes":"Scales"}</span><span>Status</span><span></span></div>
         ${rows||'<div class="empty">No ingredients yet.</div>'}
       </div>
       <div class="addrow"><button class="btn sm" id="add-line">${IC.plus}Add ingredient</button></div>
-    </div>
+    </div>${isD?"":makeCard(c.id,d)+"</div>"}
     <div class="side-col">
       <div class="card"><div class="card-h"><h2>${isD?"Size & targets":"Batch"}</h2></div><div class="card-b setrow two">${settings}</div></div>
       <details class="card nut" id="nutbox" open><summary>Nutrition<span class="muted" style="font-weight:400;font-size:12px">${isD?"per cup":"per 100 "+esc(d.unit)}</span></summary>
@@ -1288,7 +1318,7 @@ function buildSteps(l) {
   const f = scaleOf(d), eat = [], pack = [];
   (d.lines || []).forEach(x => { const it = S.items[x.itemId]; if (!it) return;
     const q = qtyUsed(x, f), u = x.unit || it.unit || "";
-    (it.category === "Packaging" || it.category === "Supplies" ? pack : eat).push({ name: it.name || "", amt: q == null ? "" : roundQty(q) + " " + u, pk: it.category === "Packaging" || it.category === "Supplies" }); });
+    (it.category === "Packaging" || it.category === "Supplies" ? pack : eat).push({ name: it.name || "", amt: q == null ? "" : roundQty(q) + " " + u, pk: it.category === "Packaging" || it.category === "Supplies", sub: subSteps(it, q, u) }); });
   return eat.concat(pack);
 }
 // every step of every cup in the order: key "line.cup.step"
@@ -1307,7 +1337,7 @@ function buildHtml(id, o) {
     if (!p.steps.length) return `<div class="obuild"><div class="bh">${head}</div><div class="faint">This drink has no recipe yet.</div></div>`;
     const done = p.steps.filter((_, si) => t[p.li + "." + p.c + "." + si]).length;
     return `<div class="obuild"><div class="bh"><span>${head}</span><span class="faint">${done}/${p.steps.length}</span></div>${p.steps.map((s, si) => { const k = p.li + "." + p.c + "." + si, on = !!t[k];
-      return `<label class="${on ? "done" : ""}${s.pk ? " pk" : ""}"><input type="checkbox" data-bstep="${id}" data-bk="${k}"${on ? " checked" : ""}><span>${si + 1}. ${esc(s.name)}</span><span class="amt">${esc(s.amt)}</span></label>`; }).join("")}</div>`;
+      return `<label class="${on ? "done" : ""}${s.pk ? " pk" : ""}"><input type="checkbox" data-bstep="${id}" data-bk="${k}"${on ? " checked" : ""}><span>${si + 1}. ${esc(s.name)}${s.sub && s.sub.length ? `<small class="bsub">${s.sub.map(x => esc(x.amt) + " " + esc(x.name)).join(" + ")}</small>` : ""}</span><span class="amt">${esc(s.amt)}</span></label>`; }).join("")}</div>`;
   }).join("");
 }
 function renderOrders() {
