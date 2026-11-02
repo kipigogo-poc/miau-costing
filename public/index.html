@@ -731,6 +731,8 @@ const MAKE_KEY="miau-make";
 function makeTicks(){try{return JSON.parse(localStorage.getItem(MAKE_KEY)||"{}")||{};}catch{return {};}}
 function saveMake(t){try{localStorage.setItem(MAKE_KEY,JSON.stringify(t));}catch{}}
 // ingredients for qty q (in the line's unit) of house-made item it: scaled from its batch, allowing for usable %
+// made fresh per cup (espresso) vs made ahead in a batch (banana milk, foams, sauces). Unset: espresso/shots are per cup.
+function madeFresh(it){return it&&it.perCup!=null?!!it.perCup:/espresso|\bshots?\b/i.test((it&&it.name)||"");}
 function subSteps(it,q,lineUnit){
   if(!isPrep(it)||!(q>0)) return [];
   const f=scaleOf(it), yq=+it.yieldQty*f, use=(it.yield===""||it.yield==null)?1:+it.yield;
@@ -748,8 +750,8 @@ function makeCard(id,d){
   const done=ls.filter(x=>t[x.i]).length, yq=+d.yieldQty*f, cupMl=drink?cupOf(d):0;
   const sub=drink?(cupMl?cupMl+" ml cup · ":""):(f!==1?"× "+(+f.toFixed(2))+" · ":"")+(yq>0?"makes "+roundQty(yq)+" "+esc(d.unit)+" · ":"");
   return `<div class="card makebox"><div class="card-h"><h2>${drink?"How to make":"Make a batch"}</h2><span class="muted" style="font-size:12px">${sub}${done}/${ls.length}</span></div>
-    <div class="obuild" style="margin:0 16px 12px">${ls.map(({l,i,it},n)=>{const q=qtyUsed(l,f),on=!!t[i],u=l.unit||it.unit||"",sb=drink&&q!=null?subSteps(it,q,u):[];
-      return `<label class="${on?"done":""}"><input type="checkbox" data-mstep="${key}" data-mk="${i}"${on?" checked":""}><span>${n+1}. ${esc(it.name||"")}${sb.length?`<small class="bsub">${sb.map(x=>esc(x.amt)+" "+esc(x.name)).join(" + ")}</small>`:""}</span><span class="amt">${q==null?"":roundQty(q)+" "+esc(u)}</span></label>`;}).join("")}
+    <div class="obuild" style="margin:0 16px 12px">${ls.map(({l,i,it},n)=>{const q=qtyUsed(l,f),on=!!t[i],u=l.unit||it.unit||"",sb=drink&&q!=null&&madeFresh(it)?subSteps(it,q,u):[],fromB=drink&&isPrep(it)&&!madeFresh(it);
+      return `<label class="${on?"done":""}"><input type="checkbox" data-mstep="${key}" data-mk="${i}"${on?" checked":""}><span>${n+1}. ${esc(it.name||"")}${sb.length?`<small class="bsub">${sb.map(x=>esc(x.amt)+" "+esc(x.name)).join(" + ")}</small>`:""}${fromB?`<small class="bsub">from the batch (In-house)</small>`:""}</span><span class="amt">${q==null?"":roundQty(q)+" "+esc(u)}</span></label>`;}).join("")}
       ${d.note?`<div class="faint" style="margin-top:6px">${esc(d.note)}</div>`:""}
       <div style="display:flex;justify-content:flex-end;margin-top:8px"><button class="btn sm ${done===ls.length?"primary":""}" id="make-reset" data-mkey="${key}">${done===ls.length?(drink?"Done · next cup":"Done · start a new batch"):"Clear ticks"}</button></div></div></div>`;
 }
@@ -777,6 +779,7 @@ function renderDetailM(kind){
       <label class="fld"><span>Unit</span><select class="sel" id="p-unit" data-d="unit">${UNITS.map(x=>`<option${x===d.unit?" selected":""}>${x}</option>`).join("")}</select></label>
       <label class="fld"><span>Batch ×</span><input class="in num" id="p-mult" data-d="batchMult" type="number" step="any" min="0" inputmode="decimal" value="${d.batchMult??""}" placeholder="1"></label>
       <label class="fld"><span>Usable</span><div class="unitwrap"><input class="in num" id="p-use" data-d="yield" data-pct type="number" step="any" min="1" max="100" inputmode="decimal" value="${d.yield==null||d.yield===""?"":+(d.yield*100).toFixed(2)}" placeholder="100"><b>%</b></div></label>
+      <div style="grid-column:1/-1;font-size:13px"><label class="sw"><input type="checkbox" id="p-fresh" data-d="perCup"${madeFresh(d)?" checked":""}> Made fresh for each cup</label><div class="faint" style="font-size:12px;margin-top:2px">${madeFresh(d)?"Drinks and orders show this recipe for every cup.":"Made ahead in a batch. Drinks and orders just say “from the batch”."}</div></div>
     </div>`;
   const econ=isD?`
     <div class="card econ"><div class="card-b">
@@ -1017,6 +1020,7 @@ document.addEventListener("change",e=>{
   if(el.dataset.f==="scales"){const i=+el.closest("[data-line]").dataset.line;c.doc.lines[i].fixed=!el.checked;save(col,c.id,true);recompute();return;}
   if(el.dataset.f==="t"){const i=+el.closest("[data-line]").dataset.line,l=c.doc.lines[i];l.t=el.value;if(l.t==="same")l.fixed=true;else delete l.fixed;save(col,c.id,true);render();return;}
   if(el.dataset.d==="unit"){c.doc.unit=el.value;save(col,c.id,true);render();return;}
+  if(el.dataset.d==="perCup"){c.doc.perCup=el.checked;save(col,c.id,true);render();return;}
   if(el.dataset.d==="nutrManual"){c.doc.nutrManual=el.checked;save(col,c.id,true);render();return;}
 });
 document.addEventListener("toggle",e=>{if(e.target.id==="nutbox")S.nutOpen=e.target.open;if(e.target.id==="dr-nut")S.drNut=e.target.open;},true);
@@ -1195,7 +1199,8 @@ function renderDetailD(kind){
     <label class="fld"><span>Batch makes</span><input class="in num" id="p-yield" data-d="yieldQty" type="number" step="any" min="0" inputmode="decimal" value="${d.yieldQty??""}"></label>
     <label class="fld"><span>Unit</span><select class="sel" id="p-unit" data-d="unit">${UNITS.map(x=>`<option${x===d.unit?" selected":""}>${x}</option>`).join("")}</select></label>
     <label class="fld"><span>Batch ×</span><input class="in num" id="p-mult" data-d="batchMult" type="number" step="any" min="0" inputmode="decimal" value="${d.batchMult??""}" placeholder="1"></label>
-    <label class="fld"><span>Usable</span><div class="unitwrap"><input class="in num" id="p-use" data-d="yield" data-pct type="number" step="any" min="1" max="100" inputmode="decimal" value="${d.yield==null||d.yield===""?"":+(d.yield*100).toFixed(2)}" placeholder="100"><b>%</b></div></label>`;
+    <label class="fld"><span>Usable</span><div class="unitwrap"><input class="in num" id="p-use" data-d="yield" data-pct type="number" step="any" min="1" max="100" inputmode="decimal" value="${d.yield==null||d.yield===""?"":+(d.yield*100).toFixed(2)}" placeholder="100"><b>%</b></div></label>
+      <div style="grid-column:1/-1;font-size:13px"><label class="sw"><input type="checkbox" id="p-fresh" data-d="perCup"${madeFresh(d)?" checked":""}> Made fresh for each cup</label><div class="faint" style="font-size:12px;margin-top:2px">${madeFresh(d)?"Drinks and orders show this recipe for every cup.":"Made ahead in a batch. Drinks and orders just say “from the batch”."}</div></div>`;
   const strip=isD?`
     <div class="card kpi"><div class="k">Cost per cup</div><div class="v num" data-out="total"></div><div class="s">incl. <span data-out="extra"></span> extras <button class="linkbtn" id="pc-edit">Edit</button></div><div class="s" data-out="factor"></div></div>
     <div class="card kpi"><div class="k">Price</div><div class="unitwrap pre" style="margin-top:6px"><input class="in num kpi-in" id="d-price" data-d="price" type="number" step="any" min="0" inputmode="decimal" value="${d.price??""}" placeholder="0.00"><b>₱</b></div></div>
@@ -1343,7 +1348,7 @@ function buildSteps(l) {
   const f = scaleOf(d), eat = [], pack = [];
   (d.lines || []).forEach(x => { const it = S.items[x.itemId]; if (!it) return;
     const q = qtyUsed(x, f), u = x.unit || it.unit || "";
-    (it.category === "Packaging" || it.category === "Supplies" ? pack : eat).push({ name: it.name || "", amt: q == null ? "" : roundQty(q) + " " + u, pk: it.category === "Packaging" || it.category === "Supplies", sub: subSteps(it, q, u) }); });
+    (it.category === "Packaging" || it.category === "Supplies" ? pack : eat).push({ name: it.name || "", amt: q == null ? "" : roundQty(q) + " " + u, pk: it.category === "Packaging" || it.category === "Supplies", sub: madeFresh(it) ? subSteps(it, q, u) : [], batch: isPrep(it) && !madeFresh(it) }); });
   return eat.concat(pack);
 }
 // every step of every cup in the order: key "line.cup.step"
@@ -1362,7 +1367,7 @@ function buildHtml(id, o) {
     if (!p.steps.length) return `<div class="obuild"><div class="bh">${head}</div><div class="faint">This drink has no recipe yet.</div></div>`;
     const done = p.steps.filter((_, si) => t[p.li + "." + p.c + "." + si]).length;
     return `<div class="obuild"><div class="bh"><span>${head}</span><span class="faint">${done}/${p.steps.length}</span></div>${p.steps.map((s, si) => { const k = p.li + "." + p.c + "." + si, on = !!t[k];
-      return `<label class="${on ? "done" : ""}${s.pk ? " pk" : ""}"><input type="checkbox" data-bstep="${id}" data-bk="${k}"${on ? " checked" : ""}><span>${si + 1}. ${esc(s.name)}${s.sub && s.sub.length ? `<small class="bsub">${s.sub.map(x => esc(x.amt) + " " + esc(x.name)).join(" + ")}</small>` : ""}</span><span class="amt">${esc(s.amt)}</span></label>`; }).join("")}</div>`;
+      return `<label class="${on ? "done" : ""}${s.pk ? " pk" : ""}"><input type="checkbox" data-bstep="${id}" data-bk="${k}"${on ? " checked" : ""}><span>${si + 1}. ${esc(s.name)}${s.sub && s.sub.length ? `<small class="bsub">${s.sub.map(x => esc(x.amt) + " " + esc(x.name)).join(" + ")}</small>` : ""}${s.batch ? `<small class="bsub">from the batch</small>` : ""}</span><span class="amt">${esc(s.amt)}</span></label>`; }).join("")}</div>`;
   }).join("");
 }
 function renderOrders() {
