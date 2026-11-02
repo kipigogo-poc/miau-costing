@@ -779,6 +779,8 @@ function renderDetailM(kind){
       <label class="fld"><span>Unit</span><select class="sel" id="p-unit" data-d="unit">${UNITS.map(x=>`<option${x===d.unit?" selected":""}>${x}</option>`).join("")}</select></label>
       <label class="fld"><span>Batch ×</span><input class="in num" id="p-mult" data-d="batchMult" type="number" step="any" min="0" inputmode="decimal" value="${d.batchMult??""}" placeholder="1"></label>
       <label class="fld"><span>Usable</span><div class="unitwrap"><input class="in num" id="p-use" data-d="yield" data-pct type="number" step="any" min="1" max="100" inputmode="decimal" value="${d.yield==null||d.yield===""?"":+(d.yield*100).toFixed(2)}" placeholder="100"><b>%</b></div></label>
+      <label class="fld"><span>100 ml weighs</span><div class="unitwrap"><input class="in num" id="p-dens" data-d="dens100" type="number" step="any" min="0" inputmode="decimal" value="${+d.density>0?+(d.density*100).toFixed(1):""}" placeholder="—"><b>g</b></div></label>
+      <div class="faint" style="grid-column:1/-1;font-size:12px;line-height:1.45">Whipped foam or cream? Enter what you get <b>after</b> whipping: weigh it (unit g) or measure it in a jug (unit ml). Air adds volume, not weight. To use it in drinks by the other unit, fill a 100 ml cup with the finished foam and enter its weight above.</div>
     </div>`;
   const econ=isD?`
     <div class="card econ"><div class="card-b">
@@ -945,7 +947,7 @@ document.addEventListener("click",e=>{
   if(t.dataset.edit){openDrawer(t.dataset.edit);return;}
   if(t.dataset.mf){S.mf=t.dataset.mf;renderMenu();return;}
   if(t.dataset.if){S.if=t.dataset.if;renderItems();return;}
-  if(t.dataset.fix){const it=S.items[t.dataset.fix];if(t.dataset.field==="open"&&isPrep(it)){go("prep",t.dataset.fix);return;}openDrawer(t.dataset.fix,t.dataset.field);return;}
+  if(t.dataset.fix){const it=S.items[t.dataset.fix];if(isPrep(it)){go("prep",t.dataset.fix);setTimeout(()=>{const x=$(t.dataset.field==="dens"?"#p-dens":"#p-yield");if(x)x.focus();},60);return;}openDrawer(t.dataset.fix,t.dataset.field);return;}
   if(t.dataset.focus){const el=document.getElementById(t.dataset.focus);if(el){el.focus();el.classList.add("hl");}return;}
   if(t.id==="new-drink"){const id=rid("d");S.drinks[id]={name:"",baseVol:null,targetVol:null,price:null,vat:0.12,target:0.30,lines:[{itemId:"",qty:null}]};save("drinks",id,true);go("drink",id);setTimeout(()=>$("#d-name")?.focus(),30);return;}
   if(t.id==="dl-items"){downloadSourcing();return;}
@@ -999,6 +1001,7 @@ document.addEventListener("input",e=>{
   }
   if(S.view!=="drink"&&S.view!=="prep") return;
   const c=cur(), col=c.kind==="drink"?"drinks":"items";
+  if(el.dataset.d==="dens100"){const v=readVal(el);c.doc.density=v==null?null:v/100;save(col,c.id);recompute();return;}
   if(el.dataset.d!==undefined&&el.tagName==="INPUT"&&el.type!=="checkbox"){c.doc[el.dataset.d]=readVal(el);save(col,c.id);recompute();return;}
   if(el.dataset.f==="qty"){const i=+el.closest("[data-line]").dataset.line;c.doc.lines[i].qty=readVal(el);save(col,c.id);recompute();}
 });
@@ -1197,7 +1200,9 @@ function renderDetailD(kind){
     <label class="fld"><span>Batch makes</span><input class="in num" id="p-yield" data-d="yieldQty" type="number" step="any" min="0" inputmode="decimal" value="${d.yieldQty??""}"></label>
     <label class="fld"><span>Unit</span><select class="sel" id="p-unit" data-d="unit">${UNITS.map(x=>`<option${x===d.unit?" selected":""}>${x}</option>`).join("")}</select></label>
     <label class="fld"><span>Batch ×</span><input class="in num" id="p-mult" data-d="batchMult" type="number" step="any" min="0" inputmode="decimal" value="${d.batchMult??""}" placeholder="1"></label>
-    <label class="fld"><span>Usable</span><div class="unitwrap"><input class="in num" id="p-use" data-d="yield" data-pct type="number" step="any" min="1" max="100" inputmode="decimal" value="${d.yield==null||d.yield===""?"":+(d.yield*100).toFixed(2)}" placeholder="100"><b>%</b></div></label>`;
+    <label class="fld"><span>Usable</span><div class="unitwrap"><input class="in num" id="p-use" data-d="yield" data-pct type="number" step="any" min="1" max="100" inputmode="decimal" value="${d.yield==null||d.yield===""?"":+(d.yield*100).toFixed(2)}" placeholder="100"><b>%</b></div></label>
+      <label class="fld"><span>100 ml weighs</span><div class="unitwrap"><input class="in num" id="p-dens" data-d="dens100" type="number" step="any" min="0" inputmode="decimal" value="${+d.density>0?+(d.density*100).toFixed(1):""}" placeholder="—"><b>g</b></div></label>
+      <div class="faint" style="grid-column:1/-1;font-size:12px;line-height:1.45">Whipped foam or cream? Enter what you get <b>after</b> whipping: weigh it (unit g) or measure it in a jug (unit ml). Air adds volume, not weight. To use it in drinks by the other unit, fill a 100 ml cup with the finished foam and enter its weight above.</div>`;
   const strip=isD?`
     <div class="card kpi"><div class="k">Cost per cup</div><div class="v num" data-out="total"></div><div class="s">incl. <span data-out="extra"></span> extras <button class="linkbtn" id="pc-edit">Edit</button></div><div class="s" data-out="factor"></div></div>
     <div class="card kpi"><div class="k">Price</div><div class="unitwrap pre" style="margin-top:6px"><input class="in num kpi-in" id="d-price" data-d="price" type="number" step="any" min="0" inputmode="decimal" value="${d.price??""}" placeholder="0.00"><b>₱</b></div></div>
