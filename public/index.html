@@ -731,8 +731,8 @@ const MAKE_KEY="miau-make";
 function makeTicks(){try{return JSON.parse(localStorage.getItem(MAKE_KEY)||"{}")||{};}catch{return {};}}
 function saveMake(t){try{localStorage.setItem(MAKE_KEY,JSON.stringify(t));}catch{}}
 // ingredients for qty q (in the line's unit) of house-made item it: scaled from its batch, allowing for usable %
-// made fresh per cup (espresso) vs made ahead in a batch (banana milk, foams, sauces). Unset: espresso/shots are per cup.
-function madeFresh(it){return it&&it.perCup!=null?!!it.perCup:/espresso|\bshots?\b/i.test((it&&it.name)||"");}
+// in-house items are always made ahead in batches: drinks and orders just pour "from the batch"
+function madeFresh(){return false;}
 function subSteps(it,q,lineUnit){
   if(!isPrep(it)||!(q>0)) return [];
   const f=scaleOf(it), yq=+it.yieldQty*f, use=(it.yield===""||it.yield==null)?1:+it.yield;
@@ -779,7 +779,6 @@ function renderDetailM(kind){
       <label class="fld"><span>Unit</span><select class="sel" id="p-unit" data-d="unit">${UNITS.map(x=>`<option${x===d.unit?" selected":""}>${x}</option>`).join("")}</select></label>
       <label class="fld"><span>Batch ×</span><input class="in num" id="p-mult" data-d="batchMult" type="number" step="any" min="0" inputmode="decimal" value="${d.batchMult??""}" placeholder="1"></label>
       <label class="fld"><span>Usable</span><div class="unitwrap"><input class="in num" id="p-use" data-d="yield" data-pct type="number" step="any" min="1" max="100" inputmode="decimal" value="${d.yield==null||d.yield===""?"":+(d.yield*100).toFixed(2)}" placeholder="100"><b>%</b></div></label>
-      <div style="grid-column:1/-1;font-size:13px"><label class="sw"><input type="checkbox" id="p-fresh" data-d="perCup"${madeFresh(d)?" checked":""}> Made fresh for each cup</label><div class="faint" style="font-size:12px;margin-top:2px">${madeFresh(d)?"Drinks and orders show this recipe for every cup.":"Made ahead in a batch. Drinks and orders just say “from the batch”."}</div></div>
     </div>`;
   const econ=isD?`
     <div class="card econ"><div class="card-b">
@@ -1020,7 +1019,6 @@ document.addEventListener("change",e=>{
   if(el.dataset.f==="scales"){const i=+el.closest("[data-line]").dataset.line;c.doc.lines[i].fixed=!el.checked;save(col,c.id,true);recompute();return;}
   if(el.dataset.f==="t"){const i=+el.closest("[data-line]").dataset.line,l=c.doc.lines[i];l.t=el.value;if(l.t==="same")l.fixed=true;else delete l.fixed;save(col,c.id,true);render();return;}
   if(el.dataset.d==="unit"){c.doc.unit=el.value;save(col,c.id,true);render();return;}
-  if(el.dataset.d==="perCup"){c.doc.perCup=el.checked;save(col,c.id,true);render();return;}
   if(el.dataset.d==="nutrManual"){c.doc.nutrManual=el.checked;save(col,c.id,true);render();return;}
 });
 document.addEventListener("toggle",e=>{if(e.target.id==="nutbox")S.nutOpen=e.target.open;if(e.target.id==="dr-nut")S.drNut=e.target.open;},true);
@@ -1199,8 +1197,7 @@ function renderDetailD(kind){
     <label class="fld"><span>Batch makes</span><input class="in num" id="p-yield" data-d="yieldQty" type="number" step="any" min="0" inputmode="decimal" value="${d.yieldQty??""}"></label>
     <label class="fld"><span>Unit</span><select class="sel" id="p-unit" data-d="unit">${UNITS.map(x=>`<option${x===d.unit?" selected":""}>${x}</option>`).join("")}</select></label>
     <label class="fld"><span>Batch ×</span><input class="in num" id="p-mult" data-d="batchMult" type="number" step="any" min="0" inputmode="decimal" value="${d.batchMult??""}" placeholder="1"></label>
-    <label class="fld"><span>Usable</span><div class="unitwrap"><input class="in num" id="p-use" data-d="yield" data-pct type="number" step="any" min="1" max="100" inputmode="decimal" value="${d.yield==null||d.yield===""?"":+(d.yield*100).toFixed(2)}" placeholder="100"><b>%</b></div></label>
-      <div style="grid-column:1/-1;font-size:13px"><label class="sw"><input type="checkbox" id="p-fresh" data-d="perCup"${madeFresh(d)?" checked":""}> Made fresh for each cup</label><div class="faint" style="font-size:12px;margin-top:2px">${madeFresh(d)?"Drinks and orders show this recipe for every cup.":"Made ahead in a batch. Drinks and orders just say “from the batch”."}</div></div>`;
+    <label class="fld"><span>Usable</span><div class="unitwrap"><input class="in num" id="p-use" data-d="yield" data-pct type="number" step="any" min="1" max="100" inputmode="decimal" value="${d.yield==null||d.yield===""?"":+(d.yield*100).toFixed(2)}" placeholder="100"><b>%</b></div></label>`;
   const strip=isD?`
     <div class="card kpi"><div class="k">Cost per cup</div><div class="v num" data-out="total"></div><div class="s">incl. <span data-out="extra"></span> extras <button class="linkbtn" id="pc-edit">Edit</button></div><div class="s" data-out="factor"></div></div>
     <div class="card kpi"><div class="k">Price</div><div class="unitwrap pre" style="margin-top:6px"><input class="in num kpi-in" id="d-price" data-d="price" type="number" step="any" min="0" inputmode="decimal" value="${d.price??""}" placeholder="0.00"><b>₱</b></div></div>
