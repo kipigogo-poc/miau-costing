@@ -5,7 +5,7 @@ import {
   onAuthStateChanged, signOut, setPersistence, browserLocalPersistence,
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
   collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, writeBatch, getDocs,
-  getDoc, getDocFromCache, query, where, orderBy, limit
+  getDoc, getDocFromCache, query, where, orderBy, limit, terminate, clearIndexedDbPersistence, waitForPendingWrites
 } from "./firebase.js";
 import { firebaseConfig, SHOP_ID, SHOP_NAME } from "./config.js";
 
@@ -106,8 +106,13 @@ async function askSheets() {
 window.miauSheetsForget = () => { sheetsTok = null; };
 window.miauUserEmail = () => (auth.currentUser && auth.currentUser.email) || "";
 
-let denied = false;
-function noAccess() {
+let denied = false, checkingAccess = false;
+// A "no permission" error can be a stale sign-in token. Refresh it and re-check before signing anyone out.
+async function noAccess() {
+  if (denied || checkingAccess || !auth.currentUser) return;
+  checkingAccess = true;
+  try { await auth.currentUser.getIdToken(true); await getDoc(doc(db, "shops", SHOP_ID, "settings", "costing")); checkingAccess = false; return; }
+  catch (e) { checkingAccess = false; if (!e || e.code !== "permission-denied") return; }
   if (denied) return; denied = true;
   gate.hidden = false; document.body.classList.add("locked");
   gateMsg.innerHTML = `<b>${esc(auth.currentUser?.email || "This account")}</b> doesn't have access.`;
@@ -117,15 +122,42 @@ function noAccess() {
 }
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
+/* ---------- idle sign-out: 30 minutes without use → sign out and clear this device. Never while in use. ---------- */
+const IDLE_MS = 30 * 60 * 1000, LAST_KEY = "miau-last-active";
+let lastMem = 0, idleOut = false;
+const lastActive = () => { let v = 0; try { v = +localStorage.getItem(LAST_KEY) || 0; } catch {} return Math.max(v, lastMem); };   // shared by every open tab
+function touch(force) {
+  const t = Date.now(); if (!force && t - lastMem < 5000) return;
+  lastMem = t; try { localStorage.setItem(LAST_KEY, String(t)); } catch {}
+}
+["pointerdown", "keydown", "touchstart", "wheel", "input", "mousemove", "scroll"].forEach(ev => addEventListener(ev, () => touch(), { capture: true, passive: true }));
+const isIdle = () => { const l = lastActive(); return l > 0 && Date.now() - l > IDLE_MS; };
+async function idleSignOut(manual) {
+  if (idleOut) return; idleOut = true;
+  try { sessionStorage.clear(); if (!manual) sessionStorage.setItem("gateMsg", "You were signed out after 30 minutes without activity. Sign in again to continue."); } catch {}
+  try { window.miauSheetsForget && window.miauSheetsForget(); } catch {}
+  try { for (const k of Object.keys(localStorage)) if (k.startsWith("miau-")) localStorage.removeItem(k); } catch {}
+  try { await Promise.race([waitForPendingWrites(db), new Promise(r => setTimeout(r, 4000))]); } catch {}   // let saves finish first
+  try { await signOut(auth); } catch {}
+  try { await terminate(db); await clearIndexedDbPersistence(db); } catch {}                              // wipe the offline copy of shop data
+  location.reload();
+}
+function checkIdle() { if (auth.currentUser && !idleOut && isIdle()) idleSignOut(); }
+setInterval(checkIdle, 15000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) checkIdle(); });
+addEventListener("pageshow", checkIdle);
+
 let resolved = false;
 onAuthStateChanged(auth, user => {
   if (user) {
+    if (isIdle()) { idleSignOut(); return; }        // app reopened after 30+ minutes away: sign out before showing anything
+    touch(true);
     gate.hidden = true; document.body.classList.remove("locked");
     renderAccount(user);
     if (!resolved) { resolved = true; window.__resolveDb(makeDb()); }
   } else {
     gate.hidden = false; document.body.classList.add("locked");
-    if (resolved) location.reload();                 // signed out: drop in-memory data
+    if (resolved && !idleOut) location.reload();     // signed out: drop in-memory data
   }
 });
 
@@ -164,7 +196,7 @@ document.addEventListener("click", e => {
   const t = e.target.closest("button"); if (!t) return;
   if (t.id === "acct-open" || t.id === "acct-tab") openSheet();
   else if (t.id === "acct-close") closeSheet();
-  else if (t.id === "acct-signout") signOut(auth);
+  else if (t.id === "acct-signout") idleSignOut(true);     // same full clean-up as the idle sign-out
   else if (t.id === "acct-export") exportBackup();
   else if (t.id === "acct-import-go") importNow();
   else if (t.id === "acct-sheets") { closeSheet(); if (typeof go === "function") go("sheets"); }
